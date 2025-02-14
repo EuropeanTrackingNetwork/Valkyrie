@@ -1,4 +1,4 @@
-
+%% Setting up and testing upload of data to SQL server
 
 % Define the DSN-less connection string
 connStr = 'Driver={SQL Server};Server=D54296\SQLEXPRESS;Database=mydatabase;Trusted_Connection=yes;';

@@ -18,7 +18,7 @@ close all
 addpath(genpath('O:\Tech_MSFD-deskriptor11-Danmark\Monitering\Analysis\scripts'));
 
 % Call in metadata for the deployment you would like to process
-run('O:\Tech_MSFD-deskriptor11-Danmark\Monitering\Data\Station 104 Anholt\Results\DKMst104_20201008_Metadata.m');
+run('O:\Tech_MSFD-deskriptor11-Danmark\Monitering\Data\__Metadata\_metadataInput\Station 104 Anholt\DKMst104_20201008_Metadata.m');
 
 % Call in Allnoise data from Step 2.
 cd(outputLocation)
