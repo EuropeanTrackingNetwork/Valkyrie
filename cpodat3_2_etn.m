@@ -1,7 +1,3 @@
-deployment_start = datetime("03-Jun-2021 00:00:00",'InputFormat','dd-MMM-yyyy HH:mm:ss'); %putting this in manually for now
-deployment_end = datetime("04-Jun-2021 21:49:00",'InputFormat','dd-MMM-yyyy HH:mm:ss');
-
-
 function ETN = cpodat3_2_etn(cpodat3, resolution, deployment_start, deployment_end, onlyporp)
 % cpodat3 = the output from using importpoddata function on a CP3 file
 % resolution = do you want it in seconds minutes or hours resolution
@@ -9,6 +5,21 @@ function ETN = cpodat3_2_etn(cpodat3, resolution, deployment_start, deployment_e
 % are not detection-positive)
 % deployment_end = when did the pod turn off
 % onlyporp = do you want to filter out the dolphins and sonar
+arguments
+    cpodat3 struct
+    resolution (1,:) char {mustBeMember(resolution, {'seconds','minutes','hours'})}
+    deployment_start datetime
+    deployment_end datetime
+    onlyporp logical = true
+end
+
+% Check if there are any detections in this file
+numRows = numel(cpodat3);
+% If there are no detections, display an error message
+if numRows <= 1
+    error('This file has no detections.');
+end
+    
 
 % Extract data
 date = [cpodat3.date];
@@ -21,7 +32,6 @@ species = arrayfun(@(x) x.clicktrain.species, cpodat3, 'UniformOutput', false);
 validQuality = find(quality == 3 | quality == 2); %high and mod, not low
 date = date(validQuality);
 species = species(validQuality)';
-quality = quality(validQuality);
 duration = duration(validQuality);
 
 
@@ -29,9 +39,9 @@ if resolution == "seconds"
     % Create Clix/S
     roundedSeconds = dateshift(date, 'start', 'second');
     % Create a table to group data
-    ClixPerS = table(roundedSeconds', quality', duration', species', 'VariableNames', {'Datetime', 'Quality', 'Duration', 'Species'});
+    ClixPerS = table(roundedSeconds', duration', species', 'VariableNames', {'time', 'duration', 'species'});
     % Group by Timestamp and species
-    ClixPerS = varfun(@sum, ClixPerS, 'GroupingVariables', {'Datetime', 'Species'}, 'InputVariables', 'Duration');
+    ClixPerS = varfun(@sum, ClixPerS, 'GroupingVariables', {'time', 'species'}, 'InputVariables', 'duration');
 
     %creating detection positive seconds
     timeVector = (deployment_start:seconds(1):deployment_end)';
@@ -40,15 +50,16 @@ if resolution == "seconds"
     [~, ~, expandedSpeciesVector] = unique(expandedSpeciesVector);
 
     % Create the new table with the expanded time and species vectors
-    ETN = table(expandedTimeVector, expandedSpeciesVector, 'VariableNames', {'Datetime', 'Species'});
+    ETN = table(expandedTimeVector, expandedSpeciesVector, 'VariableNames', {'time', 'species'});
 
     % Merge the new table with your original event table
-    ETN = outerjoin(ETN, ClixPerS, 'Keys', {'Datetime', 'Species'}, 'MergeKeys', true);
-    ETN.GroupCount = fillmissing(ETN.GroupCount, 'constant', 0);
-    ETN.sum_Duration = fillmissing(ETN.sum_Duration, 'constant', 0);
+    ETN = outerjoin(ETN, ClixPerS, 'Keys', {'time', 'species'}, 'MergeKeys', true);
+    ETN.nclicks = fillmissing(ETN.GroupCount, 'constant', 0);
+    ETN.milliseconds = fillmissing(ETN.sum_duration, 'constant', 0);
+    ETN = ETN(:,[1,2,5,6]);
 
     %Create DPS
-    ETN.DPS = ETN.GroupCount > 0;
+    ETN.dps = ETN.nclicks > 0;
 
     clear ClixPerS expandedSpeciesVector expandedTimeVector timeVector roundedSeconds validQuality
 
@@ -60,7 +71,7 @@ if resolution == "minutes" || resolution == "hours"
     % Round timestamps to the nearest minute
     roundedMinutes = dateshift(date, 'start', 'minute');
     % Create a table to group data
-    ClixPerM = table(roundedMinutes', quality', duration', species', 'VariableNames', {'Datetime', 'Quality', 'Duration', 'Species'});
+    ClixPerM = table(roundedMinutes', duration', species', 'VariableNames', {'Datetime', 'Duration', 'Species'});
     % Group by Timestamp andEventType1
     ClixPerM = varfun(@sum, ClixPerM, 'GroupingVariables', {'Datetime', 'Species'}, 'InputVariables', 'Duration');
 
@@ -81,37 +92,35 @@ if resolution == "minutes" || resolution == "hours"
     %Create DPM
     ETN.DPM = ETN.GroupCount > 0;
 
+    ETN.Properties.VariableNames = {'time','species','nclicks','milliseconds','dpm'};
+
     clear roundedMinutes ClixPerM timeVector expandedTimeVector expandedSpeciesVector
 end
 
+
 %creating DPM/H and DPH
 if resolution == "hours"
-    ETN.Hour = dateshift(ETN.Datetime, 'start', 'hour');
-    ETN = varfun(@sum, ETN, 'GroupingVariables', {'Hour', 'Species'}, 'InputVariables', {'sum_Duration','DPM'}); % DPM/H
-    ETN.DPH = ETN.sum_DPM > 0; % DPH
-    ETN.Properties.VariableNames{'sum_sum_Duration'} = 'sum_Duration';
+    ETN.time = dateshift(ETN.time, 'start', 'hour');
+    ETN = varfun(@sum, ETN, 'GroupingVariables', {'time', 'species'}, 'InputVariables', {'milliseconds','dpm'}); % DPM/H
+    ETN.dph = ETN.sum_dpm > 0; % DPH
+    ETN.GroupCount = [];
+    ETN.Properties.VariableNames = {'time','species','milliseconds','dpm','dph'};
 end
 
 %add species back in
-ETN.Species = categorical(ETN.Species, 1:length(uniqueSpecies), uniqueSpecies);
+ETN.species = categorical(ETN.species, 1:length(uniqueSpecies), uniqueSpecies);
 
 %add quality back in
 ETN.quality = repmat(3, height(ETN), 1);
 
 % change duration from s to ms
-ETN.sum_Duration = ETN.sum_Duration*1000;
+ETN.milliseconds = ETN.milliseconds*1000;
 
-% change date format
-ETN.Hour = datetime(ETN.Hour, 'InputFormat', 'yyyy-MM-dd HH:mm:ss');
-
-% move cols around
-ETN = ETN(:,[1, 2, 4, 5, 6, 7]);
-
-%rename columns
-ETN.Properties.VariableNames = {'time','species','milliseconds','dpm','dph','quality'};
+% change time format
+ETN.time = datetime(ETN.time, 'InputFormat', 'yyyy-MM-dd HH:mm:ss');
 
 % filter to only be porps
-if onlyporp == "TRUE"
+if onlyporp == true
     ETN = ETN(ETN.species == "NBHF", :);
 end
 
