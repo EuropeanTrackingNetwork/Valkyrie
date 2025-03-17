@@ -15,7 +15,7 @@ arguments
 end
 
 % extract data
-fieldsToKeep = {'time', 'nall', 'clickHi', 'clickMed'};
+fieldsToKeep = {'time', 'nall', 'clickHi', 'clickMed', 'no_of_trains', 'train'};
 allFields = fieldnames(outputminutes);
 fieldsToRemove = setdiff(allFields, fieldsToKeep);
 ETN = rmfield(outputminutes, fieldsToRemove);
@@ -34,13 +34,36 @@ ETN.number_clicks_filtered = ETN.clickMed + ETN.clickHi ;
 ETN.clickHi = [] ;
 ETN.clickMed = [] ;
 
+
+% train duration (milliseconds)
+ETN.milliseconds = zeros(height(ETN), 1) ;
+for i = 1:size(ETN, 1)
+    if ~isempty(ETN.train{i})
+        dummy_minute = ETN.train{i} ;
+
+        % filter out the low q trains
+        dummy_minute = dummy_minute([dummy_minute.qualityclass] ~= 1);
+
+        %calculate duration
+        if ~isempty(dummy_minute)
+            [dummy_minute.milliseconds] = deal(0) ;
+            for j = 1:size(dummy_minute, 2)
+                dummy_minute(j).milliseconds = dummy_minute(j).time(end) - dummy_minute(j).time(1) ;
+            end
+            ETN.milliseconds(i) = sum([dummy_minute.milliseconds]) ;
+        end
+    end
+end
+% change units from 0.2 microsecond steps to milliseconds
+ETN.milliseconds = ETN.milliseconds*0.0002 ; %IS THIS RIGHT
+
 %hour resolution
 if resolution == "hours"
     ETN.time = dateshift([ETN.time], 'start', 'hour');
-    ETN = varfun(@sum, ETN, 'GroupingVariables', {'time'}, 'InputVariables', {'dpm','nall','number_clicks_filtered'}); % DPM/H
+    ETN = varfun(@sum, ETN, 'GroupingVariables', {'time'}, 'InputVariables', {'dpm','nall','number_clicks_filtered','milliseconds'}); % DPM/H
     ETN.dph = ETN.sum_dpm > 0; % DPH
     ETN.GroupCount = [];
-    ETN.Properties.VariableNames = {'time','dpm','nall','number_clicks_filtered','dph'};
+    ETN.Properties.VariableNames = {'time','dpm','nall','number_clicks_filtered','milliseconds','dph'};
 end
 
 % species
