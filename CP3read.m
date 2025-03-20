@@ -115,7 +115,7 @@ function [minutes, trains]=CP3read(filename, n)
 if strcmp('.CP3',filename(end-3:end)) || strcmp('.cp3',filename(end-3:end))
     filename=filename(1:end-4);     %remove extension
 end
-file=fopen([filename,'.CP3']);
+file=fopen([path,filename,'.CP3']);
 header=fread(file,760);
 starttime=((header(257)*256+header(258))*256+header(259))*256+header(260);
 starttimeCP3=datenum([1899 12 30 0 starttime 0]);
@@ -126,7 +126,7 @@ fclose(file);
 
 if nargin>1 && strcmp('-n',n)
     try     %Read CP1-file, if present
-        file=fopen([filename,'.CP1']);
+        file=fopen([path filename,'.CP1']);
         noCP1=false;
     catch
         disp('CP1-file not found!');
@@ -144,14 +144,14 @@ end
 
 %% Find minute-recordings
 if ~noCP1
-    minutebreaksCP1=CP1_data(10,:)==254;    %lines with minutedata
+    minutebreaksCP1=CP1_data(10,:)==254;    %lines with minutedata - finds all columns in row 10 where the value is 254, indicating a minute. Between each 254 are zeros that are counted up as individual detected clicks
     dummy=(1:length(CP1_data))';            %linenumber in raw data
     minuteindexCP1=dummy(minutebreaksCP1);  %index to locatio of minutebreaks in data
 end
 
-minutebreaks=CP3_data(40,:)==254;       %lines with minutedata
+minutebreaks=CP3_data(40,:)==254;       %lines with minutedata - finds all columns in row 40 with a 254, indicating a minute has passed. Between each 254 is either nothing (if no classified clicks) or numbers indicating the train ID - counting up those numbers between 254 will give the number of classified clicks that minute.
 dummy=(1:length(CP3_data))';            %linenumber in raw data
-minuteindex=dummy(minutebreaks);        %index to locatio of minutebreaks in data
+minuteindex=dummy(minutebreaks);        %index to location of minutebreaks in data
 %% Read clicks minute by minute
 qualitylist={'Doubtful','Low','Medium','High'};
 specieslist={'NBHF','Dolphin','Unclass.','Sonar','HEL1'};
@@ -162,8 +162,8 @@ for currentminute=1:sum(minutebreaks)-1
     minutes(currentminute).time=starttimeCP3+currentminute/1440;
     minutes(currentminute).temperature=CP3_data(4,minuteindex(currentminute))/5;
     minutes(currentminute).angle=acosd(1-CP3_data(5,minuteindex(currentminute))/128);
-    if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty
-        clicksinminute=CP3_data(:,minuteindex(currentminute)+1:minuteindex(currentminute+1)-1); %all clickinfo in current minute
+    if minuteindex(currentminute-1)<minuteindex(currentminute)-1   %minute not empty
+        clicksinminute=CP3_data(:,minuteindex(currentminute-1)+1:minuteindex(currentminute)-1); %all clickinfo in current minute
         trainID=clicksinminute(40,:);
         trainIDlist=unique(trainID);
         minutes(currentminute).no_of_trains=length(trainIDlist);
@@ -187,7 +187,7 @@ for currentminute=1:sum(minutebreaks)-1
             trains(trainno).rategood=bitshift(bitand(dummy(1),4),-2);
             % species good (boolean)
             minutes(currentminute).train(n).speciesgood=bitshift(bitand(dummy(1),8),-3);
-            trains(trainno).speciesgood=bitshift(bitand(dummy(1),8),-8);
+            trains(trainno).speciesgood=bitshift(bitand(dummy(1),8),-8); % Why is this -8 and not -3 as above???
             % Number of clicks in train
             minutes(currentminute).train(n).no_of_clicks=sum(trainID==trainIDlist(n));
             trains(trainno).no_of_clicks=sum(trainID==trainIDlist(n));

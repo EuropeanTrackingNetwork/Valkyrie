@@ -109,3 +109,39 @@ end
 
 % Display the result
 disp(['Data written to ' h5FileName]);
+
+
+%%
+% Supported file extensions
+            supportedExtensions = {'.CP1', '.CP3', '.FP1', '.FP3'};
+
+            % Initialize file pairs
+            cp1Files = {};
+            cp3Files = {};
+            fp1Files = {};
+            fp3Files = {};
+
+            % Check each file
+            for i = 1:length(files)
+                [~, name, ext] = fileparts(files{i});
+
+                % Check if the file extension is supported
+                if ~ismember(upper(ext), supportedExtensions)
+                    uialert(app.UIFigure, ...
+                        sprintf('Wrong file type selected - type selected: %s. The formats supported are .CP1, .CP3, .FP1, or .FP3.', ext), ...
+                        'File Type Error');
+                    return;
+                end
+
+                % add the file names to correct array for validation later
+                switch ext
+                    case '.CP1'
+                        cp1Files{end+1} = name;
+                    case '.CP3'
+                        cp3Files{end+1} = name;
+                    case '.FP1'
+                        fp1Files{end+1} = name;
+                    case '.FP3'
+                        fp3Files{end+1} = name;
+                end
+            end
