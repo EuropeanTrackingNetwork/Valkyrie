@@ -48,6 +48,9 @@ end
 % change units from 0.2 microsecond steps to milliseconds
 ETN.milliseconds = ETN.milliseconds*0.0002 ; %IS THIS RIGHT
 
+% lost minutes
+ETN.lost_minutes = double(ETN.nall > 4096) ;
+
 % species
 ETN.species = repmat("NBHF", height(ETN), 1);
 
