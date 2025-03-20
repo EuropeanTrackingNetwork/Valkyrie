@@ -1,4 +1,4 @@
-function ETN = CP3read_2_etn(outputminutes, resolution)
+function ETN = CP3read_2_etn(outputminutes)
 
 % Takes the output from the CP3read function and turns it into the correct
 % format for the ETN database
@@ -6,7 +6,7 @@ function ETN = CP3read_2_etn(outputminutes, resolution)
 % outputminutes = the first output structure from CP3read
 % the user-selected resolution of the data (minutes, hours)
 
-% MINUTE or HOUR RESOLUTION and HARBOR PORPS ONLY
+% MINUTE RESOLUTION and HARBOR PORPS ONLY
 % NALL IS WRONG %
 
 arguments
@@ -15,7 +15,7 @@ arguments
 end
 
 % extract data
-fieldsToKeep = {'time', 'nall', 'clickHi', 'clickMed', 'no_of_trains', 'train'};
+fieldsToKeep = {'time', 'temperature', 'angle', 'nall', 'clickHi', 'clickMed', 'no_of_trains', 'train'};
 allFields = fieldnames(outputminutes);
 fieldsToRemove = setdiff(allFields, fieldsToKeep);
 ETN = rmfield(outputminutes, fieldsToRemove);
@@ -56,15 +56,6 @@ for i = 1:size(ETN, 1)
 end
 % change units from 0.2 microsecond steps to milliseconds
 ETN.milliseconds = ETN.milliseconds*0.0002 ; %IS THIS RIGHT
-
-%hour resolution
-if resolution == "hours"
-    ETN.time = dateshift([ETN.time], 'start', 'hour');
-    ETN = varfun(@sum, ETN, 'GroupingVariables', {'time'}, 'InputVariables', {'dpm','nall','number_clicks_filtered','milliseconds'}); % DPM/H
-    ETN.dph = ETN.sum_dpm > 0; % DPH
-    ETN.GroupCount = [];
-    ETN.Properties.VariableNames = {'time','dpm','nall','number_clicks_filtered','milliseconds','dph'};
-end
 
 % species
 ETN.species = repmat("NBHF", height(ETN), 1);
