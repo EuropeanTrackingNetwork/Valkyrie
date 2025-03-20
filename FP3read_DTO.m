@@ -1,17 +1,14 @@
-function [minutes, trains]=CP3read(filename, n)
+function [minutes, trains]=FP3read(filename, n)
 % [minutes, trains]=CP3read(filename, n)
-% Reads C-POD CP3-datafile
+% Reads F-POD FP3-datafile
 % returns structures "minutes" with data arranged per minute and
 % "trains" with data arranged in individual trains
-% Filename without extension or .'CP3'.
-% Requires both CP1 and CP3-files to be in the current directory in order
+% Filename without extension or .'FP3'.
+% Requires both FP1 and FP3-files to be in the current directory in order
 % to compute noise level nall
-% Variable n = '-n' includes Nall from CP1-file (if present)
+% Variable n = '-n' includes Nall from FP1-file (if present)
 
-% Version 11th October 2024: error in decoding of click time stamps
-% corrected. Error in previous script amounts to less than 256 µs
-
-% Info from CP3-file is stored in two structures, minutes and trains.
+% Info from FP3-file is stored in two structures, minutes and trains.
 % Minutes-structure contains redordings minute by minute, also empty
 % minutes.
 % minutes.time          : beginning of minute, in Matlab format
@@ -47,9 +44,12 @@ function [minutes, trains]=CP3read(filename, n)
 % the minutes-strucure, just organised by individual trains, rather than by
 % minute.
 
-% There is more information in the CP3-file, not all is extracted.
+% There is more information in the FP3-file, not all is extracted.
 
 % J. Tougaard, Aarhus University, May 2017
+% Modified by Mel Cosentino, Aarhus University, Nov 2023, to read FP3 files
+% Modified by Mia L. K. Nielsen, Aarhus University, March 2025 to include
+% it in the DTO-BioFlow data aggregation tool
 
 
 
@@ -85,7 +85,7 @@ function [minutes, trains]=CP3read(filename, n)
 % 18    Fmax in cluster  	Clstr params from Clstr selected
 % 19    nCycFused 	tcFrange bits in 7 LSB  NarrowBand in MSB
 % 20    cFav	Clstr params from Clstr selected
-% 21    PreICI    // expands  	Blank – preICI is still there but could be re-used
+% 21    PreICI    // expands  	Blank â€“ preICI is still there but could be re-used
 % 22    cPmin	Clstr params from Clstr selected
 % 23    cPmax	Clstr params from Clstr selected
 % 24    p0ClstrSts	NinTrain
@@ -112,24 +112,24 @@ function [minutes, trains]=CP3read(filename, n)
 %       for click records. 254 indicate minute record, 255 indicate end of file. 
 
    
-if strcmp('.CP3',filename(end-3:end)) || strcmp('.cp3',filename(end-3:end))
+if strcmp('.FP3',filename(end-3:end)) || strcmp('.fp3',filename(end-3:end))
     filename=filename(1:end-4);     %remove extension
 end
-file=fopen([path,filename,'.CP3']);
-header=fread(file,760);
+file=fopen([path, filename,'.FP3']);
+header=fread(file,360);
 starttime=((header(257)*256+header(258))*256+header(259))*256+header(260);
-starttimeCP3=datenum([1899 12 30 0 starttime 0]);
+starttimeCP3=datetime([1899 12 30 0 starttime 0]); % changed from datenum
 %datebase = 1899-12-30 00:00
-CP3_data=fread(file,[40,inf]);
-CP3_data(:,CP3_data(40,:)==255)=[]; %delete end of file markers
+FP3_data=fread(file,[48,inf]); % there seem to be 48 variables in FPOD data, not 40
+FP3_data(:,FP3_data(48,:)==255)=[]; % delete end of file markers
 fclose(file);
 
 if nargin>1 && strcmp('-n',n)
     try     %Read CP1-file, if present
-        file=fopen([path filename,'.CP1']);
+        file=fopen([path, filename,'.FP1']);
         noCP1=false;
     catch
-        disp('CP1-file not found!');
+        disp('FP1-file not found!');
         noCP1=true;
     end
 else
@@ -144,14 +144,15 @@ end
 
 %% Find minute-recordings
 if ~noCP1
-    minutebreaksCP1=CP1_data(10,:)==254;    %lines with minutedata - finds all columns in row 10 where the value is 254, indicating a minute. Between each 254 are zeros that are counted up as individual detected clicks
+    minutebreaksCP1=CP1_data(10,:)==254;    %lines with minutedata
     dummy=(1:length(CP1_data))';            %linenumber in raw data
-    minuteindexCP1=dummy(minutebreaksCP1);  %index to locatio of minutebreaks in data
+    minuteindexCP1=dummy(minutebreaksCP1);  %index to location of minutebreaks in data
 end
 
-minutebreaks=CP3_data(40,:)==254;       %lines with minutedata - finds all columns in row 40 with a 254, indicating a minute has passed. Between each 254 is either nothing (if no classified clicks) or numbers indicating the train ID - counting up those numbers between 254 will give the number of classified clicks that minute.
-dummy=(1:length(CP3_data))';            %linenumber in raw data
-minuteindex=dummy(minutebreaks);        %index to location of minutebreaks in data
+minutebreaks=CP3_data(41,:)==254;       % lines with minutedata (used to be 40, for CP3)
+dummy=(1:length(CP3_data))';            % linenumber in raw data
+minuteindex=dummy(minutebreaks);        % index to locatio of minutebreaks in data
+
 %% Read clicks minute by minute
 qualitylist={'Doubtful','Low','Medium','High'};
 specieslist={'NBHF','Dolphin','Unclass.','Sonar','HEL1'};
@@ -162,8 +163,8 @@ for currentminute=1:sum(minutebreaks)-1
     minutes(currentminute).time=starttimeCP3+currentminute/1440;
     minutes(currentminute).temperature=CP3_data(4,minuteindex(currentminute))/5;
     minutes(currentminute).angle=acosd(1-CP3_data(5,minuteindex(currentminute))/128);
-    if minuteindex(currentminute-1)<minuteindex(currentminute)-1   %minute not empty
-        clicksinminute=CP3_data(:,minuteindex(currentminute-1)+1:minuteindex(currentminute)-1); %all clickinfo in current minute
+    if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty
+        clicksinminute=CP3_data(:,minuteindex(currentminute)+1:minuteindex(currentminute+1)-1); %all clickinfo in current minute
         trainID=clicksinminute(40,:);
         trainIDlist=unique(trainID);
         minutes(currentminute).no_of_trains=length(trainIDlist);
@@ -175,8 +176,11 @@ for currentminute=1:sum(minutebreaks)-1
             % Species class
             minutes(currentminute).train(n).spclass=bitshift(bitand(dummy(1),240),-4);
             trains(trainno).spclass=bitshift(bitand(dummy(1),240),-4);
-            minutes(currentminute).train(n).species=specieslist(trains(trainno).spclass+1);
-            trains(trainno).species=specieslist(trains(trainno).spclass+1);
+            minutes(currentminute).train(n).species=specieslist(trains(trainno).spclass); 
+            trains(trainno).species=specieslist(trains(trainno).spclass); 
+            % minutes(currentminute).train(n).species=specieslist(trains(trainno).spclass+1); % OBS: why is this a +1?
+            % trains(trainno).species=specieslist(trains(trainno).spclass+1);% OBS: why is this a +1?
+
             % quality class
             minutes(currentminute).train(n).qualityclass=bitand(dummy(1),3);
             trains(trainno).qualityclass=bitand(dummy(1),3);
@@ -187,17 +191,17 @@ for currentminute=1:sum(minutebreaks)-1
             trains(trainno).rategood=bitshift(bitand(dummy(1),4),-2);
             % species good (boolean)
             minutes(currentminute).train(n).speciesgood=bitshift(bitand(dummy(1),8),-3);
-            trains(trainno).speciesgood=bitshift(bitand(dummy(1),8),-8); % Why is this -8 and not -3 as above???
+            trains(trainno).speciesgood=bitshift(bitand(dummy(1),8),-8);
             % Number of clicks in train
             minutes(currentminute).train(n).no_of_clicks=sum(trainID==trainIDlist(n));
             trains(trainno).no_of_clicks=sum(trainID==trainIDlist(n));
             % Date and time of current minute
             trains(trainno).minute=starttimeCP3+currentminute/1440;
             % time
-            minutes(currentminute).train(n).time=5*(((clicksinminute(1,trainID==trainIDlist(n))*256 ...
-                +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n)));
-            trains(trainno).time=5*(((clicksinminute(1,trainID==trainIDlist(n))*256 ...
-                +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n)));
+            minutes(currentminute).train(n).time=5*((clicksinminute(1,trainID==trainIDlist(n))*256 ...
+                +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n));
+            trains(trainno).time=5*((clicksinminute(1,trainID==trainIDlist(n))*256 ...
+                +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n));
             minutes(currentminute).train(n).ici=diff([minutes(currentminute).train(n).time]);
             trains(trainno).ici=diff([minutes(currentminute).train(n).time]);
             % cycles
