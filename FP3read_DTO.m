@@ -1,5 +1,5 @@
 function [minutes, trains]=FP3read(filename, n)
-% [minutes, trains]=CP3read(filename, n)
+% [minutes, trains]=FP3read(filename, n)
 % Reads F-POD FP3-datafile
 % returns structures "minutes" with data arranged per minute and
 % "trains" with data arranged in individual trains
@@ -48,110 +48,133 @@ function [minutes, trains]=FP3read(filename, n)
 
 % J. Tougaard, Aarhus University, May 2017
 % Modified by Mel Cosentino, Aarhus University, Nov 2023, to read FP3 files
-% Modified by Mia L. K. Nielsen, Aarhus University, March 2025 to include
-% it in the DTO-BioFlow data aggregation tool
+% Modified by Mia L. K. Nielsen, Aarhus University, March 2025 based on
+% input from Nick Treganza
 
+% FP3-file structure (from Nick):
+% The FP3 file structure is different than the CP3 file structure. There is
+% a longer header and data is stored in 16-bit segments. The information
+% that is stored in each byte of the segment will depend on the number in
+% the first byte (see below). 
+% But similar to the CP3 data 254 denotes minute data.
 
+% Click data:
+% 0-183: Means the following 15 bytes will have click data information
+% % Byte 1: Time (MSB): time stamp: steps of 0.5 micro-s from start of current minute, big-endian,
+% % Byte 2: time
+% % Byte 3: Time (LSB)
+% % Byte 4: Peakat #ClkIPIrange: Wavenumber of loudest cycle; range of IPIs in click
+% % Byte 5: IPIpreMax: IPI  of Pk-1
+% % Byte 6: IPIatMax: IPI of  Pk  this is the loudest cycle in the click
+% % Byte 7: IPIplus1: IPI of  Pk+1
+% % Byte 8: IPIplus2: IPI of  Pk+2
+% % Byte 9: RawPkminus1: Amplitude of  P-1
+% % Byte 10: MaxPkRaw: Amplitude of  Pmax,  the loudest cycle in the click
+% % Byte 11: RawPkplus1: Amplitude of  P+1
+% % Byte 12: IPIbefore: IPI before click start
+% % Byte 13: AmpReversals #duration: N of Amplitude Reversals in click envelope; Duration of click (MSB)
+% % Byte 14: duration: Duration of click (LSB)
+% % Byte 15: HasWave #EndIPI: IPI of last cycle, compressed; flag if boat sonar found
 
-% CP3-file structure (from Nick):
-% First 760 bytes: Header
+% Train details
+% 249: Indicates that the following 15 bytes are train information
+% % Byte 1: tNinIncGaps #clusterNall
+% % Byte 2: tNinIncGaps
+% % Byte 3: tMedKHZ
+% % Byte 4: tAvSPL
+% % Byte 5: tAvPkAt #tAvPRF
+% % Byte 6: tAvPRF
+% % Byte 7: PrecedingGap #tAvBWx8 #tWUTSrisk
+% % Byte 8: 
+% % Byte 9: tRateGoodScore
+% % Byte 10: tavNcyc
+% % Byte 11: cFmin
+% % Byte 12: cFmax
+% % Byte 13: EncSpN
+% % Byte 14: Qn #SpClass #Marked #IsEcho #SpGood #RateGood
+% % Byte 15: #TrnIDn
+
+% Minute data
+% 254: Indicates that the following 15 bytes are minute information
+% % Byte 1: VirtLastClkTimeInMin
+% % Byte 2: 
+% % Byte 3: AngleDeg
+% % Byte 4: 
+% % Byte 5: 
+% % Byte 6: LandmarkSeqScore
+% % Byte 7: DegC
+% % Byte 8: NrawClxInMin
+% % Byte 9: NrawClxInMin
+% % Byte 10: PriorMinOn #FollowingMinON #BatInUse #BatInUse
+% % Byte 11: battery stuff
+% % Byte 12: battery stuff
+% % Byte 13: battery stuff
+% % Byte 14: MinuteDeadband
+% % Byte 15: 
+
+% Other values may appear and then the following bytes will hold different
+% information. These are not relevant for this project, but the vlaues and
+% their meaning are outlined here:
+% 247: Text error code
+% 248: social call parameters
+% 250: wev recording info
+% 252: sonar ghosts record
+% 253: Duff record
+% 255: end of recording 
+
+% First 7008 bytes: Header 
 % Byte 257-260: Starttime in minutes from 1899-12-30 00:00, big-endian
- 
-% Data bytes. Each click is stored in a 40-byte sequence. Every minute a 40
-% byte minute sequence is also stored.
 
-% Minute-sequence bytes:
-% 4     Temperature     t=b/5 (oC)
-% 5     Angle sensor    a=acos(1-b/128)
-% 21    always 20
-% 40    always 254 (indicates minute sequence)
 
-%Click- sequences 
-% 1-3   time stamp: steps of 0.2 micro-s from start of current minute, big-endian,
-% 4     cycles
-% 5     bandwidth
-% 6     Frequency
-% 7     End-frequency
-% 8     Max. amplitude (Nix)
-% 9     Envelope 2 vals	Click params
-% 10	BandKhz, if in a band, otherwise 0	Clstr params from Clstr selected
-% 11    NinClstr	Clstr params from Clstr selected
-% 12    Dur/slope      // expands	Clstr params from Clstr selected
-% 13    UPsteps  + nFusedCls in 3 MSB	Clstr params from Clstr selected
-% 14    cSlope	Clstr params from Clstr selected
-% 15    MxCycDvSPL0  highest value of (Ncyc* 32 / SPL)	Clstr params from Clstr selected
-% 16    nBW0, 2bits, BW1 3bits, BW2 3bits	Clstr params from Clstr selected
-% 17    Fmin in cluster	Clstr params from Clstr selected
-% 18    Fmax in cluster  	Clstr params from Clstr selected
-% 19    nCycFused 	tcFrange bits in 7 LSB  NarrowBand in MSB
-% 20    cFav	Clstr params from Clstr selected
-% 21    PreICI    // expands  	Blank – preICI is still there but could be re-used
-% 22    cPmin	Clstr params from Clstr selected
-% 23    cPmax	Clstr params from Clstr selected
-% 24    p0ClstrSts	NinTrain
-% 25    NinClstr	avF
-% 26    Dur/slope      // expands	avPRF msb
-% 27    UPsteps   + FusedCyc in 3 MSB	avPRF lsb
-% 28    cSlope 	GdID[1]
-% 29    MxCycDvSPL1  highest value of (Ncyc* 32 / SPL)	GdID[2]   
-% 30    nBW0, 2bits, BW1 3bits, BW2 3bits	GdID[3]       
-% 31    Fmin	GdID[4] 
-% 32    Fmax  higher frequency of two loudest clicks if both above 50	
-% 33    Fdiff	
-% 34    cFav
-% 35    PreICI    // expands  	WUTrisk 2LSB    Marked = MSB         
-% 36    cPmin 	BandN bits 0..2   Preceding gap = MSB 
-% 37    cPmax	Qclass / RateQ /  SpQ / SpClass
-%       Qn:=b and 3         ; 0=doubt, 1=low, 2=med, 3=hi
-%       RateGood:=Boolean(b and 4 shr 2)  ;   // Sp good
-%       SpGood:=Boolean(b and 8 shr 3)  ;   // rate good
-%       SpClass:=tSpClass(b and 240 shr 4); 0=NBHF, 1= dolphin, 2=noSp, 3=sonar
-% 38    p1ClstrSts	TrainSpN
-% 39    BandN	EncSpN
-% 40    NrType. Train ID. Running number within each minute. Always <254
-%       for click records. 254 indicate minute record, 255 indicate end of file. 
-
+% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
+% 
+% Troubleshooting: 
+% [files, path] = uigetfile('*.*', 'MultiSelect','on') ; % select files to
+% load and test the script on
+% filename = files{4} ; % get filename of selected file
    
 if strcmp('.FP3',filename(end-3:end)) || strcmp('.fp3',filename(end-3:end))
     filename=filename(1:end-4);     %remove extension
 end
-file=fopen([path, filename,'.FP3']);
-header=fread(file,360);
+file=fopen([filename,'.FP3']);
+% file = fopen([path, filename, '.FP3']) ; % include path as argument 
+header=fread(file,360); % Question: is this 360 because we just want to extract date?
 starttime=((header(257)*256+header(258))*256+header(259))*256+header(260);
-starttimeCP3=datetime([1899 12 30 0 starttime 0]); % changed from datenum
+starttimeFP3=datenum([1899 12 30 0 starttime 0]); % changed from datenum
 %datebase = 1899-12-30 00:00
 FP3_data=fread(file,[48,inf]); % there seem to be 48 variables in FPOD data, not 40
 FP3_data(:,FP3_data(48,:)==255)=[]; % delete end of file markers
 fclose(file);
 
 if nargin>1 && strcmp('-n',n)
-    try     %Read CP1-file, if present
-        file=fopen([path, filename,'.FP1']);
-        noCP1=false;
+    try     %Read FP1-file, if present
+        file=fopen([filename,'.FP1']);
+        % file = fopen([path, filename, '.FP1']);
+        noFP1=false;
     catch
         disp('FP1-file not found!');
-        noCP1=true;
+        noFP1=true;
     end
 else
-    noCP1=true;
+    noFP1=true;
 end
-if ~noCP1
+if ~noFP1
     fread(file,360);    %header
-    CP1_data=fread(file,[10,inf]);
-    CP1_data(:,CP1_data(10,:)==255)=[]; %delete end of file markers
+    FP1_data=fread(file,[10,inf]);
+    FP1_data(:,FP1_data(10,:)==255)=[]; %delete end of file markers
     fclose(file);
 end
 
 %% Find minute-recordings
-if ~noCP1
-    minutebreaksCP1=CP1_data(10,:)==254;    %lines with minutedata
-    dummy=(1:length(CP1_data))';            %linenumber in raw data
-    minuteindexCP1=dummy(minutebreaksCP1);  %index to location of minutebreaks in data
+if ~noFP1
+    minutebreaksFP1=FP1_data(10,:)==254;    %lines with minutedata
+    dummy=(1:length(FP1_data))';            %linenumber in raw data
+    minuteindexFP1=dummy(minutebreaksFP1);  %index to location of minutebreaks in data
 end
 
-minutebreaks=CP3_data(41,:)==254;       % lines with minutedata (used to be 40, for CP3)
-dummy=(1:length(CP3_data))';            % linenumber in raw data
-minuteindex=dummy(minutebreaks);        % index to locatio of minutebreaks in data
+minutebreaks=FP3_data(41,:)==254;       % lines with minutedata (used to be 40, for CP3)
+dummy=(1:length(FP3_data))';            % linenumber in raw data
+minuteindex=dummy(minutebreaks);        % index to location of minutebreaks in data
 
 %% Read clicks minute by minute
 qualitylist={'Doubtful','Low','Medium','High'};
@@ -160,11 +183,11 @@ minutes=struct;
 trains=struct;
 trainno=1;
 for currentminute=1:sum(minutebreaks)-1
-    minutes(currentminute).time=starttimeCP3+currentminute/1440;
-    minutes(currentminute).temperature=CP3_data(4,minuteindex(currentminute))/5;
-    minutes(currentminute).angle=acosd(1-CP3_data(5,minuteindex(currentminute))/128);
+    minutes(currentminute).time=starttimeFP3+currentminute/1440;
+    minutes(currentminute).temperature=FP3_data(4,minuteindex(currentminute))/5; % get temperature in current minute
+    minutes(currentminute).angle=acosd(1-FP3_data(5,minuteindex(currentminute))/128); % get angle in current minute
     if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty
-        clicksinminute=CP3_data(:,minuteindex(currentminute)+1:minuteindex(currentminute+1)-1); %all clickinfo in current minute
+        clicksinminute=FP3_data(:,minuteindex(currentminute)+1:minuteindex(currentminute+1)-1); %all clickinfo in current minute (between the minute breaks)
         trainID=clicksinminute(40,:);
         trainIDlist=unique(trainID);
         minutes(currentminute).no_of_trains=length(trainIDlist);
@@ -176,10 +199,8 @@ for currentminute=1:sum(minutebreaks)-1
             % Species class
             minutes(currentminute).train(n).spclass=bitshift(bitand(dummy(1),240),-4);
             trains(trainno).spclass=bitshift(bitand(dummy(1),240),-4);
-            minutes(currentminute).train(n).species=specieslist(trains(trainno).spclass); 
-            trains(trainno).species=specieslist(trains(trainno).spclass); 
-            % minutes(currentminute).train(n).species=specieslist(trains(trainno).spclass+1); % OBS: why is this a +1?
-            % trains(trainno).species=specieslist(trains(trainno).spclass+1);% OBS: why is this a +1?
+            minutes(currentminute).train(n).species=specieslist(trains(trainno).spclass+1);
+            trains(trainno).species=specieslist(trains(trainno).spclass+1);
 
             % quality class
             minutes(currentminute).train(n).qualityclass=bitand(dummy(1),3);
@@ -196,7 +217,7 @@ for currentminute=1:sum(minutebreaks)-1
             minutes(currentminute).train(n).no_of_clicks=sum(trainID==trainIDlist(n));
             trains(trainno).no_of_clicks=sum(trainID==trainIDlist(n));
             % Date and time of current minute
-            trains(trainno).minute=starttimeCP3+currentminute/1440;
+            trains(trainno).minute=starttimeFP3+currentminute/1440;
             % time
             minutes(currentminute).train(n).time=5*((clicksinminute(1,trainID==trainIDlist(n))*256 ...
                 +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n));
@@ -255,9 +276,9 @@ for currentminute=1:sum(minutebreaks)-1
         minutes(currentminute).clickLow=0;
         minutes(currentminute).clickAll=0;
     end
-    if ~noCP1   %Get nall from CP1-file, if present
-        if minuteindexCP1(currentminute+1)>minuteindexCP1(currentminute)+1   %CP1 minute not empty
-            clicksinminute=CP1_data(:,minuteindexCP1(currentminute)+1:minuteindexCP1(currentminute+1)-1); %all clickinfo in current minute
+    if ~noFP1   %Get nall from FP1-file, if present
+        if minuteindexFP1(currentminute+1)>minuteindexFP1(currentminute)+1   %FP1 minute not empty
+            clicksinminute=FP1_data(:,minuteindexFP1(currentminute)+1:minuteindexFP1(currentminute+1)-1); %all clickinfo in current minute
             minutes(currentminute).nall=size(clicksinminute,2);
         else
             minutes(currentminute).nall=0;
