@@ -131,20 +131,24 @@ function [minutes, trains]=FP3read(filename, n)
 % Troubleshooting: 
 % [files, path] = uigetfile('*.*', 'MultiSelect','on') ; % select files to
 % load and test the script on
-% filename = files{4} ; % get filename of selected file
+% filename = files{2} ; % get filename of selected file
    
 if strcmp('.FP3',filename(end-3:end)) || strcmp('.fp3',filename(end-3:end))
     filename=filename(1:end-4);     %remove extension
 end
 file=fopen([filename,'.FP3']);
-% file = fopen([path, filename, '.FP3']) ; % include path as argument 
-header=fread(file,360); % Question: is this 360 because we just want to extract date?
-starttime=((header(257)*256+header(258))*256+header(259))*256+header(260);
+% file = fopen([path, filename, '.FP3']) ; % includes path as argument 
+FP3_data=fread(file,[16,inf]); % read in so table fits with the 16-bit format - first 65 rows is the header
+FP3_data = FP3_data'; % transpose data so each row is 16-byte minute info and the first column will indicate what information each byte/column will hold (see above)
+fclose(file);
+
+% Get starttime from the header
+starttime = ((FP3_data(17,1)*256+FP3_data(17,2))*256+FP3_data(17,3))*256+FP3_data(17,4);
 starttimeFP3=datenum([1899 12 30 0 starttime 0]); % changed from datenum
 %datebase = 1899-12-30 00:00
-FP3_data=fread(file,[48,inf]); % there seem to be 48 variables in FPOD data, not 40
-FP3_data(:,FP3_data(48,:)==255)=[]; % delete end of file markers
-fclose(file);
+
+FP3_data=FP3_data(65:end,:) ; % remove header information
+FP3_data(ismember(FP3_data(:,1), [247, 248, 250, 252, 255]), :) = []; % delete unused markers (247, 248, 250, 252, 253 and 255)
 
 if nargin>1 && strcmp('-n',n)
     try     %Read FP1-file, if present
@@ -159,23 +163,25 @@ else
     noFP1=true;
 end
 if ~noFP1
-    fread(file,360);    %header
-    FP1_data=fread(file,[10,inf]);
-    FP1_data(:,FP1_data(10,:)==255)=[]; %delete end of file markers
+    FP1_data=fread(file,[16,inf]);
+    FP1_data=FP1_data';
+    FP1_data(FP1_data(10,:)==255,:)=[]; %delete end of file markers
     fclose(file);
 end
 
 %% Find minute-recordings
 if ~noFP1
-    minutebreaksFP1=FP1_data(10,:)==254;    %lines with minutedata
-    dummy=(1:length(FP1_data))';            %linenumber in raw data
+    minutebreaksFP1=FP1_data(:,1)==254;    %lines with minutedata
+    dummy=(1:length(FP1_data));            %linenumber in raw data
     minuteindexFP1=dummy(minutebreaksFP1);  %index to location of minutebreaks in data
 end
 
-minutebreaks=FP3_data(41,:)==254;       % lines with minutedata (used to be 40, for CP3)
-dummy=(1:length(FP3_data))';            % linenumber in raw data
+minutebreaks=FP3_data(:,1)==254;       % Find all minutebreaks (indicated by 254 in column 1) - logical 
+dummy=(1:length(FP3_data));            % linenumber in raw data
 minuteindex=dummy(minutebreaks);        % index to location of minutebreaks in data
 
+% OBS: if minuteindex and minuteindexFP1 are same length that's a good
+% sign as they should have the data for same period!
 %% Read clicks minute by minute
 qualitylist={'Doubtful','Low','Medium','High'};
 specieslist={'NBHF','Dolphin','Unclass.','Sonar','HEL1'};
@@ -183,42 +189,48 @@ minutes=struct;
 trains=struct;
 trainno=1;
 for currentminute=1:sum(minutebreaks)-1
-    minutes(currentminute).time=starttimeFP3+currentminute/1440;
-    minutes(currentminute).temperature=FP3_data(4,minuteindex(currentminute))/5; % get temperature in current minute
-    minutes(currentminute).angle=acosd(1-FP3_data(5,minuteindex(currentminute))/128); % get angle in current minute
-    if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty
-        clicksinminute=FP3_data(:,minuteindex(currentminute)+1:minuteindex(currentminute+1)-1); %all clickinfo in current minute (between the minute breaks)
-        trainID=clicksinminute(40,:);
-        trainIDlist=unique(trainID);
-        minutes(currentminute).no_of_trains=length(trainIDlist);
-        minutes(currentminute).no_of_clicks=size(clicksinminute,2);    
-        for n=1:length(trainIDlist)
-            minutes(currentminute).train(n).ID=trainIDlist(n);
-            trains(trainno).ID=trainIDlist(n);
-            dummy=clicksinminute(37,trainID==trainIDlist(n));
-            % Species class
-            minutes(currentminute).train(n).spclass=bitshift(bitand(dummy(1),240),-4);
-            trains(trainno).spclass=bitshift(bitand(dummy(1),240),-4);
+    minutes(currentminute).time=starttimeFP3+currentminute/1440; % convert time to the right format
+    minutes(currentminute).temperature=FP3_data(minuteindex(currentminute),8)/5; % get temperature in current minute from column 8
+    minutes(currentminute).angle=acosd(1-FP3_data(minuteindex(currentminute),4)/128); % get angle in current minute from column 4
+    if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty - TO DO: check if this needs to match the CPOD condition
+        clicksinminute=FP3_data(minuteindex(currentminute)+1:minuteindex(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
+        clickdata = clicksinminute(clicksinminute(:,1)<=183,:); % get click data record for minute
+        traindetails = clicksinminute(clicksinminute(:,1)==249,:); % get train detail data for minute
+
+        % Train details:
+        trainID=traindetails(:,16); % get all train IDs in the minute - are in column 16 if column 1 == 249
+        trainIDlist=unique(trainID); % get unique train IDs in minute
+        minutes(currentminute).no_of_trains=length(trainIDlist); % get number of trains in minute
+        minutes(currentminute).no_of_clicks=length(trainID);     % get number of clicks in minute
+        for n=1:length(trainIDlist) % for the unique trains identified
+            minutes(currentminute).train(n).ID=trainIDlist(n); % get the nth train in minute
+            trains(trainno).ID=trainIDlist(n); % the nth train in train form
+            dummy=traindetails(trainID==trainIDlist(n),15); % the field with info on species class, quality class, species good and rate good - in column 15 if column 1 == 249
+            % Species class % % From Nicks code: tSpClass(Fs[FN].FBuf[Fs[FN].BufPosn + 14] and 12 shr 2); // (spHP, spDOL, spUNX, spSON, spPossSON);
+            minutes(currentminute).train(n).spclass=bitshift(bitand(dummy(1),12),-2); % 
+            trains(trainno).spclass=bitshift(bitand(dummy(1),12),-2);
             minutes(currentminute).train(n).species=specieslist(trains(trainno).spclass+1);
             trains(trainno).species=specieslist(trains(trainno).spclass+1);
-
-            % quality class
+            % quality class % % From Nicks code: Fs[FN].FBuf[Fs[FN].BufPosn + 14] and 3;        // train Qvalue 3 is Hi
             minutes(currentminute).train(n).qualityclass=bitand(dummy(1),3);
             trains(trainno).qualityclass=bitand(dummy(1),3);
             minutes(currentminute).train(n).quality=qualitylist(trains(trainno).qualityclass+1);
             trains(trainno).quality=qualitylist(trains(trainno).qualityclass+1);
-            % Rate good? (boolean)
-            minutes(currentminute).train(n).rategood=bitshift(bitand(dummy(1),4),-2);
-            trains(trainno).rategood=bitshift(bitand(dummy(1),4),-2);
-            % species good (boolean)
-            minutes(currentminute).train(n).speciesgood=bitshift(bitand(dummy(1),8),-3);
-            trains(trainno).speciesgood=bitshift(bitand(dummy(1),8),-8);
+            % Rate good? (boolean) % % From Nicks code: Fs[FN].FBuf[Fs[FN].BufPosn + 14] and 128 = 128 then Fs[FN].NRClk.RateGood:= true;
+            minutes(currentminute).train(n).rategood=(bitand(dummy(1),128) == 128);
+            trains(trainno).rategood=(bitand(dummy(1),128) == 128);
+            % species good (boolean) % % From Nicks code: Fs[FN].FBuf[Fs[FN].BufPosn + 14] and 64 = 64   then Fs[FN].NRClk.SpGood:=   true;
+            minutes(currentminute).train(n).speciesgood=(bitand(dummy(1),64) == 64);
+            trains(trainno).speciesgood=(bitand(dummy(1),64) == 64);
             % Number of clicks in train
             minutes(currentminute).train(n).no_of_clicks=sum(trainID==trainIDlist(n));
             trains(trainno).no_of_clicks=sum(trainID==trainIDlist(n));
             % Date and time of current minute
             trains(trainno).minute=starttimeFP3+currentminute/1440;
+
+            % Click data:
             % time
+            % if column 1 <= 183 and is preceded by column 1 == 249
             minutes(currentminute).train(n).time=5*((clicksinminute(1,trainID==trainIDlist(n))*256 ...
                 +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n));
             trains(trainno).time=5*((clicksinminute(1,trainID==trainIDlist(n))*256 ...
