@@ -263,7 +263,7 @@ for currentminute=1:sum(minutebreaks)-1
     end
     if ~noFP1   %Get nall from FP1-file, if present
         if minuteindexFP1(currentminute+1)>minuteindexFP1(currentminute)+1   %FP1 minute not empty
-            clicksinminute=FP1_data(:,minuteindexFP1(currentminute)+1:minuteindexFP1(currentminute+1)-1); %all clickinfo in current minute
+            clicksinminute=FP3_data(minuteindex(currentminute)+1:minuteindex(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
             minutes(currentminute).nall=size(clicksinminute,2);
         else
             minutes(currentminute).nall=0;
