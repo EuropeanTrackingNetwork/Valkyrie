@@ -111,11 +111,16 @@ function [minutes, trains]=CP3read_DTO(filename, n)
 % 40    NrType. Train ID. Running number within each minute. Always <254
 %       for click records. 254 indicate minute record, 255 indicate end of file. 
 
+% Troubleshooting: 
+% [files, path] = uigetfile('*.*', 'MultiSelect','on') ; % select files to
+% load and test the script on
+% filename = files{2} ; % get filename of selected file
    
 if strcmp('.CP3',filename(end-3:end)) || strcmp('.cp3',filename(end-3:end))
     filename=filename(1:end-4);     %remove extension
 end
 file=fopen([filename,'.CP3']);
+% file = fopen([path, filename, '.CP3']) ; % include path as argument 
 header=fread(file,760);
 starttime=((header(257)*256+header(258))*256+header(259))*256+header(260);
 starttimeCP3=datenum([1899 12 30 0 starttime 0]);
@@ -126,6 +131,7 @@ fclose(file);
 
 if nargin>1 && strcmp('-n',n)
     try     %Read CP1-file, if present
+        % file = fopen([path, filename, '.CP1']);
         file=fopen([filename,'.CP1']);
         noCP1=false;
     catch
