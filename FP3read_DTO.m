@@ -34,11 +34,7 @@ function [minutes, trains]=FP3read(filename, n)
 % minutes.train.no_of_clicks    : clicks in train
 % minutes.train.time            : time of individual clicks, usecs after start of minute
 % minutes.train.ici             : Inter-click-interval, usec
-% minutes.train.cycles          : cycles in click
-% minutes.train.nix             : peak amplitude, uncalibrated unit (Nix-unit)
-% minutes.train.frq             : mean instantaneous frequency (kHz)
-% minutes.train.BW              : measure of variation in instantaneous frequency (kHz)
-% minutes.train.fend            : Instantaneous frequency at end of click
+
 
 % trains-structure contains the same information about individual trains as
 % the minutes-strucure, just organised by individual trains, rather than by
@@ -60,9 +56,10 @@ function [minutes, trains]=FP3read(filename, n)
 
 % Click data:
 % 0-183: Means the following 15 bytes will have click data information
-% % Byte 1: Time (MSB): time stamp: steps of 0.5 micro-s from start of current minute, big-endian,
-% % Byte 2: time
-% % Byte 3: Time (LSB)
+% % Byte 0: Time (MSB): time stamp: steps of 0.5 micro-s from start of current minute, big-endian,
+% % Byte 1: time
+% % Byte 2: Time (LSB)
+% % Byte 3: Ncyc: N of cycles in the click - up to 255cycles
 % % Byte 4: Peakat #ClkIPIrange: Wavenumber of loudest cycle; range of IPIs in click
 % % Byte 5: IPIpreMax: IPI  of Pk-1
 % % Byte 6: IPIatMax: IPI of  Pk  this is the loudest cycle in the click
@@ -194,18 +191,19 @@ for currentminute=1:sum(minutebreaks)-1
     minutes(currentminute).angle=acosd(1-FP3_data(minuteindex(currentminute),4)/128); % get angle in current minute from column 4
     if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty - TO DO: check if this needs to match the CPOD condition
         clicksinminute=FP3_data(minuteindex(currentminute)+1:minuteindex(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
-        clickdata = clicksinminute(clicksinminute(:,1)<=183,:); % get click data record for minute
-        traindetails = clicksinminute(clicksinminute(:,1)==249,:); % get train detail data for minute
+       % clickdata = clicksinminute(clicksinminute(:,1)<=183,:); % get
+       % click data record for minute - not needed for this project
+        clicksinminute = clicksinminute(clicksinminute(:,1)==249,:); % get train detail data for minute
 
         % Train details:
-        trainID=traindetails(:,16); % get all train IDs in the minute - are in column 16 if column 1 == 249
+        trainID=clicksinminute(:,16); % get all train IDs in the minute - are in column 16 if column 1 == 249
         trainIDlist=unique(trainID); % get unique train IDs in minute
         minutes(currentminute).no_of_trains=length(trainIDlist); % get number of trains in minute
         minutes(currentminute).no_of_clicks=length(trainID);     % get number of clicks in minute
         for n=1:length(trainIDlist) % for the unique trains identified
             minutes(currentminute).train(n).ID=trainIDlist(n); % get the nth train in minute
             trains(trainno).ID=trainIDlist(n); % the nth train in train form
-            dummy=traindetails(trainID==trainIDlist(n),15); % the field with info on species class, quality class, species good and rate good - in column 15 if column 1 == 249
+            dummy=clicksinminute(trainID==trainIDlist(n),15); % the field with info on species class, quality class, species good and rate good - in column 15 if column 1 == 249
             % Species class % % From Nicks code: tSpClass(Fs[FN].FBuf[Fs[FN].BufPosn + 14] and 12 shr 2); // (spHP, spDOL, spUNX, spSON, spPossSON);
             minutes(currentminute).train(n).spclass=bitshift(bitand(dummy(1),12),-2); % 
             trains(trainno).spclass=bitshift(bitand(dummy(1),12),-2);
@@ -228,31 +226,6 @@ for currentminute=1:sum(minutebreaks)-1
             % Date and time of current minute
             trains(trainno).minute=starttimeFP3+currentminute/1440;
 
-            % Click data:
-            % time
-            % if column 1 <= 183 and is preceded by column 1 == 249
-            minutes(currentminute).train(n).time=5*((clicksinminute(1,trainID==trainIDlist(n))*256 ...
-                +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n));
-            trains(trainno).time=5*((clicksinminute(1,trainID==trainIDlist(n))*256 ...
-                +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n));
-            minutes(currentminute).train(n).ici=diff([minutes(currentminute).train(n).time]);
-            trains(trainno).ici=diff([minutes(currentminute).train(n).time]);
-            % cycles
-            minutes(currentminute).train(n).cycles=clicksinminute(4,trainID==trainIDlist(n));
-            trains(trainno).cycles=clicksinminute(4,trainID==trainIDlist(n));
-            % amplitude (nix)
-            minutes(currentminute).train(n).nix=clicksinminute(8,trainID==trainIDlist(n));
-            trains(trainno).nix=clicksinminute(8,trainID==trainIDlist(n));
-            % frequency
-            minutes(currentminute).train(n).frq=clicksinminute(6,trainID==trainIDlist(n));
-            trains(trainno).frq=clicksinminute(6,trainID==trainIDlist(n));
-            % bandwidth
-            minutes(currentminute).train(n).BW=clicksinminute(5,trainID==trainIDlist(n));
-            trains(trainno).BW=clicksinminute(5,trainID==trainIDlist(n));
-            %f-end
-            minutes(currentminute).train(n).fend=clicksinminute(7,trainID==trainIDlist(n));
-            trains(trainno).fend=clicksinminute(7,trainID==trainIDlist(n));
-            trainno=trainno+1;
         end
         
         minutes(currentminute).trainHi=sum([minutes(currentminute).train.spclass]==0'&...
