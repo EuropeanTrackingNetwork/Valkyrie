@@ -167,9 +167,51 @@ trainno=1;
 noclicksinminute = true ;
 for currentminute=1:sum(minutebreaks)-1
     minutes(currentminute).time=starttimeCP3+(currentminute-1)/1440; % convert time to the right format
-    minutes(currentminute).temperature=CP3_data(4,minuteindex(currentminute))/5; % temp is row 4
-    minutes(currentminute).angle=acosd(1-CP3_data(5,minuteindex(currentminute))/128); % angle is row 5
 
+    % The values from the minute data is off by 1 - following will align
+    % time and minute data. Need to look at minute data for the previous
+    % minuteindex to match the time and click data.
+    if currentminute == 1
+        minutecounter = currentminute; % for the first iteration use the currentminute
+    else
+        minutecounter = currentminute - 1; % for the following iterations use preceding currentminute to shift all minute data up 1 row
+    end
+
+    minutes(currentminute).temperature=CP3_data(4,minuteindex(minutecounter))/5; % temp is row 4
+    minutes(currentminute).angle=acosd(1-CP3_data(5,minuteindex(minutecounter))/128); % angle is row 5
+
+    % Get minute ON based on the evaluation protocol from Nick Treganza
+    % (March 2025):
+
+    % Get the switch settings from the header: % ADDED 02042025
+    % minutes(currentminute).SwitchNmin = header(65); % Mia: I think these
+    % switch values are related to the numeric value recorded for angle
+    % (not the calculated angle degree). And then Nick says that the CPOD
+    % evaluates if the recorded AngleN is either larger than the max value
+    % it is set to (fx 110) or if it is smaller than the minimum value it
+    % is set to (fx 0). Importantly, these switch values may be something a
+    % user can change and therefore the minON indicator is not necessarily
+    % comparable and there could be more false negatives in some datasets
+    % than others - however, the overwrite of if there is clicks registered
+    % will mean that it was always on if clicks were registered.
+
+    % minutes(currentminute).SwitchNmin = header(65);
+    % minutes(currentminute).SwitchNmax = header(66);
+    % minutes(currentminute).AngleN = CP3_data(5,minuteindex(minutecounter));
+    % minutes(currentminute).rawClxInMin = CP3_data(9,minuteindex(minutecounter));
+
+    if (CP3_data(5,minuteindex(minutecounter)) > header(66) || CP3_data(5,minuteindex(minutecounter)) < header(65))
+        minutes(currentminute).minON = 0 ;
+    else
+        minutes(currentminute).minON = 1 ;
+    end
+
+    % Pick up false OFF when a click was logged 
+    if (CP3_data(9,minuteindex(minutecounter)) > 0)
+        minutes(currentminute).minON = 1 ;
+    end
+
+    % Evaluate if the current minute had clickinfo
     if (currentminute ==1) & (minuteindex(currentminute) > 1)
         noclicksinminute = false ;
         clicksinminute=CP3_data(:,1:minuteindex(currentminute)-1); %all clickinfo in current minute CHANGED 19032025
