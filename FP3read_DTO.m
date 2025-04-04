@@ -1,4 +1,4 @@
-function [minutes, trains]=FP3read(filename, n)
+function [minutes, trains]=FP3read_DTO(filename, n)
 % [minutes, trains]=FP3read(filename, n)
 % Reads F-POD FP3-datafile
 % returns structures "minutes" with data arranged per minute and
@@ -44,8 +44,8 @@ function [minutes, trains]=FP3read(filename, n)
 
 % J. Tougaard, Aarhus University, May 2017
 % Modified by Mel Cosentino, Aarhus University, Nov 2023, to read FP3 files
-% Modified by Mia L. K. Nielsen, Aarhus University, March 2025 based on
-% input from Nick Treganza
+% Modified by Mia L. K. Nielsen and Ellen Jacobs, Aarhus University, March 
+% 2025 based on input from Nick Treganza
 
 % FP3-file structure (from Nick):
 % The FP3 file structure is different than the CP3 file structure. There is
@@ -162,6 +162,7 @@ end
 if ~noFP1
     FP1_data=fread(file,[16,inf]);
     FP1_data=FP1_data';
+    FP1_data=FP1_data(65:end,:) ; % remove header information
     FP1_data(FP1_data(10,:)==255,:)=[]; %delete end of file markers
     fclose(file);
 end
@@ -186,7 +187,7 @@ minutes=struct;
 trains=struct;
 trainno=1;
 for currentminute=1:sum(minutebreaks)-1
-    minutes(currentminute).time=starttimeFP3+currentminute/1440; % convert time to the right format
+    minutes(currentminute).time=starttimeFP3+(currentminute-1)/1440; % convert time to the right format
     minutes(currentminute).temperature=FP3_data(minuteindex(currentminute),8)/5; % get temperature in current minute from column 8
     minutes(currentminute).angle=acosd(1-FP3_data(minuteindex(currentminute),4)/128); % get angle in current minute from column 4
     if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty - TO DO: check if this needs to match the CPOD condition
@@ -225,6 +226,7 @@ for currentminute=1:sum(minutebreaks)-1
             trains(trainno).no_of_clicks=sum(trainID==trainIDlist(n));
             % Date and time of current minute
             trains(trainno).minute=starttimeFP3+currentminute/1440;
+            trainno=trainno+1;
 
         end
         
@@ -263,8 +265,8 @@ for currentminute=1:sum(minutebreaks)-1
     end
     if ~noFP1   %Get nall from FP1-file, if present
         if minuteindexFP1(currentminute+1)>minuteindexFP1(currentminute)+1   %FP1 minute not empty
-            clicksinminute=FP3_data(minuteindex(currentminute)+1:minuteindex(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
-            minutes(currentminute).nall=size(clicksinminute,2);
+            clicksinminute=FP1_data(minuteindexFP1(currentminute)+1:minuteindexFP1(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
+            minutes(currentminute).nall=size(clicksinminute,1);
         else
             minutes(currentminute).nall=0;
         end
