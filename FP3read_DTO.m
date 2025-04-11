@@ -163,7 +163,7 @@ if ~noFP1
     FP1_data=fread(file,[16,inf]);
     FP1_data=FP1_data';
     FP1_data=FP1_data(65:end,:) ; % remove header information
-    FP1_data(ismember(FP1_data(:,1), 255), :) = []; %delete end of file markers
+    FP1_data(ismember(FP1_data(:,1), [200, 250, 255]), :) = []; %delete end of file markers
     fclose(file);
 end
 
@@ -182,7 +182,7 @@ minuteindex=dummy(minutebreaks);        % index to location of minutebreaks in d
 % sign as they should have the data for same period!
 %% Read clicks minute by minute
 qualitylist={'Doubtful','Low','Medium','High'};
-specieslist={'NBHF','Dolphin','Unclass.','Sonar','HEL1'};
+specieslist={'NBHF','Dolphin','Unclass.','Sonar','possibleSonar'};
 minutes=struct;
 trains=struct;
 trainno=1;
