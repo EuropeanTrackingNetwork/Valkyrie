@@ -281,4 +281,10 @@ for currentminute=1:sum(minutebreaks)-1
             minutes(currentminute).nall=0;
         end
     end
+    % PLACEHOLDER: add in minON to match the CP3read format
+    if minutes(currentminute).nall==0 %no clicks? prob off
+        minutes(currentminute).minON = 0 ;
+    else %clicks? prob on
+        minutes(currentminute).minON = 1 ;
+    end
 end
