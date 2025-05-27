@@ -192,8 +192,7 @@ for currentminute=1:sum(minutebreaks)-1
     minutes(currentminute).angle=acosd(1-FP3_data(minuteindex(currentminute),4)/128); % get angle in current minute from column 4
     if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty 
         clicksinminute=FP3_data(minuteindex(currentminute)+1:minuteindex(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
-       % clickdata = clicksinminute(clicksinminute(:,1)<=183,:); % get click data record for minute - not needed for this project
-
+        clickdata = clicksinminute(clicksinminute(:,1)<=183,:); % get click data record for minute - needed for freq filtering and train duration
         clicksinminute = clicksinminute(clicksinminute(:,1)==249,:); % get train details data for a minute
 
         % Train details:
@@ -227,7 +226,13 @@ for currentminute=1:sum(minutebreaks)-1
             % Date and time of current minute
             trains(trainno).minute=starttimeFP3+currentminute/1440;
             trainno=trainno+1;
-
+            % Time of each click in the train
+            minutes(currentminute).train(n).time = 2*(((clickdata(trainID==trainIDlist(n),1)*256 ... % multiply by 2 bc it is 0.5 ms chunks instead of 0.2 now
+                 +clickdata(trainID==trainIDlist(n),2))*256) + clickdata(trainID==trainIDlist(n),3));
+            trains(trainno).time = 2*(((clickdata(trainID==trainIDlist(n),1)*256 ... 
+                 +clickdata(trainID==trainIDlist(n),2))*256) + clickdata(trainID==trainIDlist(n),3));
+            minutes(currentminute).train(n).ici=diff([minutes(currentminute).train(n).time]);
+            trains(trainno).ici=diff([minutes(currentminute).train(n).time]);
         end
         
         minutes(currentminute).trainHi=sum([minutes(currentminute).train.spclass]==0'&...
