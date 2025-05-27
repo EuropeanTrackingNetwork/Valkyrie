@@ -9,7 +9,7 @@ function [errorMsg, formattedDate] = validateDatetime(inputStr,minDate)
     formattedDate = ''; 
             
     commonFormats = {
-        'yyyy-MM-dd''T''HH:mm:ss''Z''', 'yyyy-MM-dd HH:mm:ss', 'dd-MM-yyyy HH:mm:ss', ...
+        'yyyy-MM-dd HH:mm:ss','yyyy-MM-dd''T''HH:mm:ss''Z''','dd-MM-yyyy HH:mm:ss', ...
         'MM/dd/yyyy HH:mm:ss', 'dd/MM/yyyy HH:mm:ss', 'yyyy/MM/dd HH:mm:ss', ...
         'yyyy-MM-dd''T''HH:mm:ss'
     };
@@ -27,7 +27,7 @@ function [errorMsg, formattedDate] = validateDatetime(inputStr,minDate)
                 errorMsg = [errorMsg,"- Check that the time is added correctly."];
             end
 
-            formattedDate = datetime(dt,'InputFormat', 'yyyy-mm-ddTHH:MM:SSZ');
+            formattedDate = dt;
             return; % will return as soon at the correct format has been found - without an error message generated
         catch
             % try next format
