@@ -1,0 +1,27 @@
+function [bgColorLat, bgColorLon, errorMsg] = validateCoordinates(lat,lon)
+%===================================================
+% Fucntion to validate latitude and longitude inputs
+%===================================================
+    latitude = str2double(lat);
+    longitude = str2double(lon);
+
+    isValidLat = ~isnan(latitude) && latitude >= -90 && latitude <= 90;
+    isValidLon = ~isnan(longitude) && longitude >= -180 && longitude <= 180;
+
+    errorMsg = '';
+    
+    if isValidLat
+        bgColorLat = 'white';
+    else
+        bgColorLat = [1 0.8 0.8]; % Light red
+        errorMsg = [errorMsg,"- Invalid latitude."];
+    end
+    
+    if isValidLon
+        bgColorLon = 'white';
+    else
+        bgColorLon = [1 0.8 0.8]; % Light red
+        errorMsg = [errorMsg,"- Invalid longitude."];
+    end
+  
+end

@@ -9,7 +9,7 @@ function [minutes, trains]=CP3read_DTO(filename, n)
 % Variable n = '-n' includes Nall from CP1-file (if present)
 
 % Version 11th October 2024: error in decoding of click time stamps
-% corrected. Error in previous script amounts to less than 256 µs
+% corrected. Error in previous script amounts to less than 256 Âµs
 
 % Info from CP3-file is stored in two structures, minutes and trains.
 % Minutes-structure contains redordings minute by minute, also empty
@@ -85,7 +85,7 @@ function [minutes, trains]=CP3read_DTO(filename, n)
 % 18    Fmax in cluster  	Clstr params from Clstr selected
 % 19    nCycFused 	tcFrange bits in 7 LSB  NarrowBand in MSB
 % 20    cFav	Clstr params from Clstr selected
-% 21    PreICI    // expands  	Blank – preICI is still there but could be re-used
+% 21    PreICI    // expands  	Blank â€“ preICI is still there but could be re-used
 % 22    cPmin	Clstr params from Clstr selected
 % 23    cPmax	Clstr params from Clstr selected
 % 24    p0ClstrSts	NinTrain
@@ -185,21 +185,11 @@ for currentminute=1:sum(minutebreaks)-1
 
     % Get the switch settings from the header: % ADDED 02042025
     % minutes(currentminute).SwitchNmin = header(65); % Mia: I think these
-    % switch values are related to the numeric value recorded for angle
-    % (not the calculated angle degree). And then Nick says that the CPOD
-    % evaluates if the recorded AngleN is either larger than the max value
-    % it is set to (fx 110) or if it is smaller than the minimum value it
-    % is set to (fx 0). Importantly, these switch values may be something a
-    % user can change and therefore the minON indicator is not necessarily
-    % comparable and there could be more false negatives in some datasets
-    % than others - however, the overwrite of if there is clicks registered
-    % will mean that it was always on if clicks were registered.
-
-    % minutes(currentminute).SwitchNmin = header(65);
+    % switch va
     % minutes(currentminute).SwitchNmax = header(66);
     % minutes(currentminute).AngleN = CP3_data(5,minuteindex(minutecounter));
     % minutes(currentminute).rawClxInMin = CP3_data(9,minuteindex(minutecounter));
-
+    % 
     if (CP3_data(5,minuteindex(minutecounter)) > header(66) || CP3_data(5,minuteindex(minutecounter)) < header(65))
         minutes(currentminute).minON = 0 ;
     else
