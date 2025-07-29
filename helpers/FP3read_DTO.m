@@ -1,4 +1,4 @@
-function [minutes, trains]=FP3read_DTO(filename, n)
+function [minutes, trains]=FP3read_DTO(path,filename, n)
 % [minutes, trains]=FP3read(filename, n)
 % Reads F-POD FP3-datafile
 % returns structures "minutes" with data arranged per minute and
@@ -133,8 +133,8 @@ function [minutes, trains]=FP3read_DTO(filename, n)
 if strcmp('.FP3',filename(end-3:end)) || strcmp('.fp3',filename(end-3:end))
     filename=filename(1:end-4);     %remove extension
 end
-file=fopen([filename,'.FP3']);
-% file = fopen([path, filename, '.FP3']) ; % includes path as argument 
+%file=fopen([filename,'.FP3']);
+file = fopen([path, filename, '.FP3']) ; % includes path as argument 
 FP3_data=fread(file,[16,inf]); % read in so table fits with the 16-bit format - first 65 rows is the header
 FP3_data = FP3_data'; % transpose data so each row is 16-byte minute info and the first column will indicate what information each byte/column will hold (see above)
 fclose(file);
@@ -147,10 +147,10 @@ starttimeFP3=datenum([1899 12 30 0 starttime 0]); % changed from datenum
 FP3_data=FP3_data(65:end,:) ; % remove header information
 FP3_data(ismember(FP3_data(:,1), [247, 248, 250, 252, 253, 255]), :) = []; % delete unused markers (247, 248, 250, 252, 253 and 255)
 
-if nargin>1 && strcmp('-n',n)
+if nargin>2 && strcmp('-n',n) % set nargin>1 if the path argument is removed
     try     %Read FP1-file, if present
-        file=fopen([filename,'.FP1']);
-        % file = fopen([path, filename, '.FP1']);
+        % file=fopen([filename,'.FP1']);
+        file = fopen([path, filename, '.FP1']);
         noFP1=false;
     catch
         disp('FP1-file not found!');

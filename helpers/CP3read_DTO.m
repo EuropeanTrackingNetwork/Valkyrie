@@ -1,4 +1,4 @@
-function [minutes, trains]=CP3read_DTO(filename, n)
+function [minutes, trains]=CP3read_DTO(path,filename, n)
 % [minutes, trains]=CP3read_DTO(filename, n)
 % Reads C-POD CP3-datafile
 % returns structures "minutes" with data arranged per minute and
@@ -119,8 +119,8 @@ function [minutes, trains]=CP3read_DTO(filename, n)
 if strcmp('.CP3',filename(end-3:end)) || strcmp('.cp3',filename(end-3:end))
     filename=filename(1:end-4);     %remove extension
 end
-file=fopen([filename,'.CP3']);
-%file = fopen([path, filename, '.CP3']) ; % include path as argument 
+%file=fopen([filename,'.CP3']);
+file = fopen([path, filename, '.CP3']) ; % include path as argument 
 header=fread(file,760);
 starttime=((header(257)*256+header(258))*256+header(259))*256+header(260);
 starttimeCP3=datenum([1899 12 30 0 starttime 0]);
@@ -129,10 +129,10 @@ CP3_data=fread(file,[40,inf]);
 CP3_data(:,CP3_data(40,:)==255)=[]; %delete end of file markers
 fclose(file);
 
-if nargin>1 && strcmp('-n',n)
+if nargin>2 && strcmp('-n',n) % set nargin>1 if the path argument is removed
     try     %Read CP1-file, if present
-        %file = fopen([path, filename, '.CP1']);
-         file=fopen([filename,'.CP1']);
+        file = fopen([path, filename, '.CP1']);
+        %file=fopen([filename,'.CP1']);
         noCP1=false;
     catch
         disp('CP1-file not found!');
