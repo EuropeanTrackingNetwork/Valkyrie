@@ -272,14 +272,16 @@ for currentminute=1:sum(minutebreaks)-1
         if minuteindexFP1(currentminute+1)>minuteindexFP1(currentminute)+1   %FP1 minute not empty
             clicksinminute=FP1_data(minuteindexFP1(currentminute)+1:minuteindexFP1(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
             
+            % OBS: filtering not needs to be tested!
+            
             % Filter based on clicks that are evaluated by the KERNO-F
             % version 1 classifier - amplitude > 10 and between 22 and 221
-            % kHz - column 7 is IPI and column 11 is peak amplitude
+            % Column 11 is peak amplitude
+            % Nick: frequency is evaluated by taking the duration of the
+            % loudest cycle (column 6 or 15?) divided by the number of cycles (column 3)
 
-            % OBS: filtering not completely correct - have commented it out
-
-            % clicksinminute(clicksinminute(:,11)<=10,:) = [];
-            % clicksinminute((round(4000./clicksinminute(:,7))<21 | round(4000./clicksinminute(:,7))>221),:) = [];
+            clicksinminute(clicksinminute(:,11)<=10,:) = [];
+            clicksinminute((round(clicksinminute(:,6)/clicksinminute(:,3))<21 | round((round(clicksinminute(:,6)/clicksinminute(:,3))>221),:) = [];
 
             minutes(currentminute).nall=size(clicksinminute,1);
         else

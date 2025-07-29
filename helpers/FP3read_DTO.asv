@@ -1,4 +1,4 @@
-function [minutes, trains]=FP3read_DTO(filename, n)
+function [minutes, trains]=FP3read_DTO(path,filename, n)
 % [minutes, trains]=FP3read(filename, n)
 % Reads F-POD FP3-datafile
 % returns structures "minutes" with data arranged per minute and
@@ -133,8 +133,8 @@ function [minutes, trains]=FP3read_DTO(filename, n)
 if strcmp('.FP3',filename(end-3:end)) || strcmp('.fp3',filename(end-3:end))
     filename=filename(1:end-4);     %remove extension
 end
-file=fopen([filename,'.FP3']);
-% file = fopen([path, filename, '.FP3']) ; % includes path as argument 
+%file=fopen([filename,'.FP3']);
+file = fopen([path, filename, '.FP3']) ; % includes path as argument 
 FP3_data=fread(file,[16,inf]); % read in so table fits with the 16-bit format - first 65 rows is the header
 FP3_data = FP3_data'; % transpose data so each row is 16-byte minute info and the first column will indicate what information each byte/column will hold (see above)
 fclose(file);
@@ -147,10 +147,10 @@ starttimeFP3=datenum([1899 12 30 0 starttime 0]); % changed from datenum
 FP3_data=FP3_data(65:end,:) ; % remove header information
 FP3_data(ismember(FP3_data(:,1), [247, 248, 250, 252, 253, 255]), :) = []; % delete unused markers (247, 248, 250, 252, 253 and 255)
 
-if nargin>1 && strcmp('-n',n)
+if nargin>2 && strcmp('-n',n) % set nargin>1 if the path argument is removed
     try     %Read FP1-file, if present
-        file=fopen([filename,'.FP1']);
-        % file = fopen([path, filename, '.FP1']);
+        % file=fopen([filename,'.FP1']);
+        file = fopen([path, filename, '.FP1']);
         noFP1=false;
     catch
         disp('FP1-file not found!');
@@ -163,18 +163,18 @@ if ~noFP1
     FP1_data=fread(file,[16,inf]);
     FP1_data=FP1_data';
     FP1_data=FP1_data(65:end,:) ; % remove header information
-    FP1_data(ismember(FP1_data(:,1), 255), :) = []; %delete end of file markers
+    FP1_data(ismember(FP1_data(:,1), [200, 250, 255]), :) = []; %delete end of file markers
     fclose(file);
 end
 
 %% Find minute-recordings
 if ~noFP1
-    minutebreaksFP1=FP1_data(:,1)==254;    %lines with minutedata
+    minutebreaksFP1=FP1_data(:,1)==254;    %lines with minutedata - same length as original file
     dummy=(1:length(FP1_data));            %linenumber in raw data
     minuteindexFP1=dummy(minutebreaksFP1);  %index to location of minutebreaks in data
 end
 
-minutebreaks=FP3_data(:,1)==254;       % Find all minutebreaks (indicated by 254 in column 1) - logical 
+minutebreaks=FP3_data(:,1)==254;       % Find all minutebreaks (indicated by 254 in column 1) - logical - same length as original file
 dummy=(1:length(FP3_data));            % linenumber in raw data
 minuteindex=dummy(minutebreaks);        % index to location of minutebreaks in data
 
@@ -182,7 +182,7 @@ minuteindex=dummy(minutebreaks);        % index to location of minutebreaks in d
 % sign as they should have the data for same period!
 %% Read clicks minute by minute
 qualitylist={'Doubtful','Low','Medium','High'};
-specieslist={'NBHF','Dolphin','Unclass.','Sonar','HEL1'};
+specieslist={'NBHF','Dolphin','Unclass.','Sonar','possibleSonar'};
 minutes=struct;
 trains=struct;
 trainno=1;
@@ -192,8 +192,7 @@ for currentminute=1:sum(minutebreaks)-1
     minutes(currentminute).angle=acosd(1-FP3_data(minuteindex(currentminute),4)/128); % get angle in current minute from column 4
     if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty 
         clicksinminute=FP3_data(minuteindex(currentminute)+1:minuteindex(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
-       % clickdata = clicksinminute(clicksinminute(:,1)<=183,:); % get click data record for minute - not needed for this project
-
+        clickdata = clicksinminute(clicksinminute(:,1)<=183,:); % get click data record for minute - needed for freq filtering and train duration
         clicksinminute = clicksinminute(clicksinminute(:,1)==249,:); % get train details data for a minute
 
         % Train details:
@@ -227,7 +226,13 @@ for currentminute=1:sum(minutebreaks)-1
             % Date and time of current minute
             trains(trainno).minute=starttimeFP3+currentminute/1440;
             trainno=trainno+1;
-
+            % Time of each click in the train
+            minutes(currentminute).train(n).time = 2*(((clickdata(trainID==trainIDlist(n),1)*256 ... % multiply by 2 bc it is 0.5 ms chunks instead of 0.2 now
+                 +clickdata(trainID==trainIDlist(n),2))*256) + clickdata(trainID==trainIDlist(n),3));
+            trains(trainno).time = 2*(((clickdata(trainID==trainIDlist(n),1)*256 ... 
+                 +clickdata(trainID==trainIDlist(n),2))*256) + clickdata(trainID==trainIDlist(n),3));
+            minutes(currentminute).train(n).ici=diff([minutes(currentminute).train(n).time]);
+            trains(trainno).ici=diff([minutes(currentminute).train(n).time]);
         end
         
         minutes(currentminute).trainHi=sum([minutes(currentminute).train.spclass]==0'&...
@@ -266,9 +271,27 @@ for currentminute=1:sum(minutebreaks)-1
     if ~noFP1   %Get nall from FP1-file, if present
         if minuteindexFP1(currentminute+1)>minuteindexFP1(currentminute)+1   %FP1 minute not empty
             clicksinminute=FP1_data(minuteindexFP1(currentminute)+1:minuteindexFP1(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
+            
+            % Filter based on clicks that are evaluated by the KERNO-F
+            % version 1 classifier - amplitude > 10 and between 22 and 221
+            % Column 11 is peak amplitude
+            % Nick: frequency is evaluated by taking the duration of the
+            % loudest cycle (column 6 or 15?) divided by the number of cycles (column 3)
+
+            % OBS: filtering not completely correct - have commented it out
+
+            % clicksinminute(clicksinminute(:,11)<=10,:) = [];
+            % clicksinminute((round(4000./clicksinminute(:,7))<21 | round(4000./clicksinminute(:,7))>221),:) = [];
+
             minutes(currentminute).nall=size(clicksinminute,1);
         else
             minutes(currentminute).nall=0;
         end
+    end
+    % PLACEHOLDER: add in minON to match the CP3read format
+    if minutes(currentminute).nall==0 %no clicks? prob off
+        minutes(currentminute).minON = 0 ;
+    else %clicks? prob on
+        minutes(currentminute).minON = 1 ;
     end
 end
