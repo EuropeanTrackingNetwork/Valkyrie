@@ -54,10 +54,13 @@ ETN.lost_minutes = double(ETN.nall > 4096) ;
 % species
 ETN.species = repmat("NBHF", height(ETN), 1);
 
+% minsON **this is misleading and must come with a warning before use!
+ETN.minsON = double(ETN.nall > 0 & ETN.angle < 80) ;
+
 % delete extraneous columns
 ETN.train = [] ;
 
-% rename columns
-ETN = renamevars(ETN, 'nall', 'number_clicks_total');
+% rename columns to match ETN input fields
+ETN.Properties.VariableNames = {'DETECTION_DATE_TIME', 'TEMPERATURE', 'ANGLE', 'NUMBER_CLICKS_TOTAL', 'QUALITY', 'NUMBER_CLICKS_FILTERED', 'DPM', 'MILLISECONDS', 'TIME_LOST_PERCENTAGE', 'SPECIES', 'RECORDED'};
 
 end
