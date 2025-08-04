@@ -271,17 +271,45 @@ for currentminute=1:sum(minutebreaks)-1
     if ~noFP1   %Get nall from FP1-file, if present
         if minuteindexFP1(currentminute+1)>minuteindexFP1(currentminute)+1   %FP1 minute not empty
             clicksinminute=FP1_data(minuteindexFP1(currentminute)+1:minuteindexFP1(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
-            
-            % OBS: filtering needs to be tested
-            
-            % Filter based on clicks that are evaluated by the KERNO-F
-            % version 1 classifier - amplitude > 10 and between 22 and 221
-            % Column 11 is peak amplitude
-            % Nick: frequency is evaluated by taking the duration of the
-            % loudest cycle (column 6 or 15?) divided by the number of cycles (column 3)
+            % 
+            % % To do: filtering needs to be tested
+            % 
+            % % Filter based on clicks that are evaluated by the KERNO-F
+            % % version 1 classifier - amplitude > 10 and between 22 and 221
+            % % Column 11 is peak amplitude
+            % % Nick: frequency is evaluated by taking the duration of the
+            % % loudest cycle (column 14 and 15) divided by the number of cycles (column 3)
+            % 
+            clicksinminute(clicksinminute(:,11)<=10,:) = []; % The amplitude is saved in Byte 11
 
-            clicksinminute(clicksinminute(:,11)<=10,:) = [];
-            clicksinminute((round(clicksinminute(:,6)/clicksinminute(:,3))<21 | round(clicksinminute(:,6)/clicksinminute(:,3))>221),:) = [];
+            % GEt Frequency from IPI at Max:
+            IPIatMax = double(clicksinminute(:, 7)); % Byte 6 → row 7
+            ClkKHZpk = 4000 ./ (IPIatMax + 1);       % Frequency in kHz from IPI
+            % ClkKHZinUse = ClkKHZpk; % default value
+            % 
+            % % Extract values
+            % Ncyc = clicksinminute(:,3);% Number if cycles
+            % ClkKHZdur = ClkKHZinUse;  % default fallback is the IPI-derived frequency
+            % 
+            % % Extract duration from byte 13 and 14
+            % duration = bitor(bitshift(bitand(clicksinminute(:,14), 240), 4), clicksinminute(:,15));
+            % 
+            % % Define masks for logic
+            % shortClicks = (Ncyc < 5) | (duration < 100);
+            % midrange    = (Ncyc >= 5 & Ncyc < 16) & (duration >= 100);
+            % longClicks  = (Ncyc >= 16) & (duration >= 100);
+            % 
+            % % Midrange clicks: use (4000 * (Ncyc - 3)) / duration
+            % ClkKHZdur(midrange) = round((4000 * (Ncyc(midrange) - 3)) ./ duration(midrange));
+            % 
+            % % Long clicks: use 60000 / duration
+            % ClkKHZdur(longClicks) = round(60000 ./ duration(longClicks));
+            % 
+            % % Replace duration estimate if it's >30 kHz different from IPI-based estimate
+            % diffTooBig = abs(ClkKHZdur - ClkKHZpk) > 30;
+            % ClkKHZdur(diffTooBig) = ClkKHZpk(diffTooBig);  % revert to IPI-based value
+
+            clicksinminute(round(ClkKHZpk) < 21 | round(ClkKHZpk) > 221, :) = [];
 
             minutes(currentminute).nall=size(clicksinminute,1);
         else
