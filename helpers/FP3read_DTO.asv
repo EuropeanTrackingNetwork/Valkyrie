@@ -44,7 +44,7 @@ function [minutes, trains]=FP3read_DTO(path,filename, n)
 
 % J. Tougaard, Aarhus University, May 2017
 % Modified by Mel Cosentino, Aarhus University, Nov 2023, to read FP3 files
-% Modified by Mia L. K. Nielsen and Ellen Jacobs, Aarhus University, March 
+% Modified by Mia L. K. Nielsen and Ellen Jacobs, Aarhus University, March-September 
 % 2025 based on input from Nick Treganza
 
 % FP3-file structure (from Nick):
@@ -144,6 +144,10 @@ starttime = ((FP3_data(17,1)*256+FP3_data(17,2))*256+FP3_data(17,3))*256+FP3_dat
 starttimeFP3=datenum([1899 12 30 0 starttime 0]); % changed from datenum
 %datebase = 1899-12-30 00:00
 
+% save header for later
+headerBytes = FP3_data(1:64,:);
+headerFlat = reshape(headerBytes',[],1) ; % convert to 1024x1 vector
+
 FP3_data=FP3_data(65:end,:) ; % remove header information
 FP3_data(ismember(FP3_data(:,1), [247, 248, 250, 252, 253, 255]), :) = []; % delete unused markers (247, 248, 250, 252, 253 and 255)
 
@@ -163,7 +167,7 @@ if ~noFP1
     FP1_data=fread(file,[16,inf]);
     FP1_data=FP1_data';
     FP1_data=FP1_data(65:end,:) ; % remove header information
-    FP1_data(ismember(FP1_data(:,1), [200, 250, 255]), :) = []; %delete end of file markers
+    FP1_data(ismember(FP1_data(:,1), 255), :) = []; %delete end of file markers
     fclose(file);
 end
 
@@ -180,6 +184,11 @@ minuteindex=dummy(minutebreaks);        % index to location of minutebreaks in d
 
 % OBS: if minuteindex and minuteindexFP1 are same length that's a good
 % sign as they should have the data for same period!
+
+%% Extract version info from header
+FPGAcodeVersion = headerFlat(40)*256 + headerFlat(41);  % bytes 39–40 (MATLAB is 1-based)
+HasExtendedAmps = FPGAcodeVersion > 801; % determine if version is >801, which will be important for filtering options
+
 %% Read clicks minute by minute
 qualitylist={'Doubtful','Low','Medium','High'};
 specieslist={'NBHF','Dolphin','Unclass.','Sonar','possibleSonar'};
@@ -189,7 +198,7 @@ trainno=1;
 for currentminute=1:sum(minutebreaks)-1
     minutes(currentminute).time=starttimeFP3+(currentminute-1)/1440; % convert time to the right format
     minutes(currentminute).temperature=FP3_data(minuteindex(currentminute),8); % get temperature in current minute from column 8
-    minutes(currentminute).angle=acosd(1-FP3_data(minuteindex(currentminute),4)/128); % get angle in current minute from column 4
+    minutes(currentminute).angle=round(acosd(1-FP3_data(minuteindex(currentminute),4)/128)); % get angle in current minute from column 4
     if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty 
         clicksinminute=FP3_data(minuteindex(currentminute)+1:minuteindex(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
         clickdata = clicksinminute(clicksinminute(:,1)<=183,:); % get click data record for minute - needed for freq filtering and train duration
@@ -225,7 +234,6 @@ for currentminute=1:sum(minutebreaks)-1
             trains(trainno).no_of_clicks=sum(trainID==trainIDlist(n));
             % Date and time of current minute
             trains(trainno).minute=starttimeFP3+currentminute/1440;
-            trainno=trainno+1;
             % Time of each click in the train
             minutes(currentminute).train(n).time = 2*(((clickdata(trainID==trainIDlist(n),1)*256 ... % multiply by 2 bc it is 0.5 ms chunks instead of 0.2 now
                  +clickdata(trainID==trainIDlist(n),2))*256) + clickdata(trainID==trainIDlist(n),3));
@@ -233,6 +241,7 @@ for currentminute=1:sum(minutebreaks)-1
                  +clickdata(trainID==trainIDlist(n),2))*256) + clickdata(trainID==trainIDlist(n),3));
             minutes(currentminute).train(n).ici=diff([minutes(currentminute).train(n).time]);
             trains(trainno).ici=diff([minutes(currentminute).train(n).time]);
+            trainno=trainno+1;
         end
         
         minutes(currentminute).trainHi=sum([minutes(currentminute).train.spclass]==0'&...
@@ -270,48 +279,86 @@ for currentminute=1:sum(minutebreaks)-1
     end
     if ~noFP1   %Get nall from FP1-file, if present
         if minuteindexFP1(currentminute+1)>minuteindexFP1(currentminute)+1   %FP1 minute not empty
-            clicksinminute=FP1_data(minuteindexFP1(currentminute)+1:minuteindexFP1(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
-            % 
-            % % To do: filtering needs to be tested
-            % 
+            allRecords = FP1_data(minuteindexFP1(currentminute)+1 : ...
+                      minuteindexFP1(currentminute+1)-1, :);
+
+            %Extract only click records (0–183)
+            clicksinminute = allRecords(allRecords(:,1) <= 183, :);
+            
+            %Filter sonar clicks
+            clicksinminute(clicksinminute(:,16) < 2, :) = [];
+            
+            
+            % --------------------------------------------
+            % Filter clicks based on KERNO-F settings (for nall to match
+            % output of FPOD.exe)
+            % --------------------------------------------
+            % Based on both Nick's code and Jamie's Java script filtering
+            % based on frequency is always based on the frequncy derived
+            % from IPI unless the user has checked a box to use the
+            % duration-derived frequency. This script has implemented both
+            % so we can include the duration-derived one if we find out it
+            % is something that has been used (most will have used the
+            % default).
             % % Filter based on clicks that are evaluated by the KERNO-F
             % % version 1 classifier - amplitude > 10 and between 22 and 221
-            % % Column 11 is peak amplitude
-            % % Nick: frequency is evaluated by taking the duration of the
-            % % loudest cycle (column 14 and 15) divided by the number of cycles (column 3)
-            % 
-            clicksinminute(clicksinminute(:,11)<=10,:) = []; % The amplitude is saved in Byte 11
 
-            % GEt Frequency from IPI at Max:
-            IPIatMax = double(clicksinminute(:, 7)); % Byte 6 → row 7
-            ClkKHZpk = 4000 ./ (IPIatMax + 1);       % Frequency in kHz from IPI
-            ClkKHZinUse = ClkKHZpk; % default value
+            % % Extract values
+            rawPk = double(clicksinminute(:,11));
+            rawPk(rawPk < 2) = 2;
+            IPIatMax = double(clicksinminute(:, 7)) + 1 ; % IPI is byte 6 + 1
 
-            % Extract values
-            Ncyc = clicksinminute(:,3);% Number if cycles
-            ClkKHZdur = ClkKHZinUse;  % default fallback is the IPI-derived frequency
+            % Use header-derived HasExtendedAmps
+            realAmp = RawToRealPk(rawPk, IPIatMax, HasExtendedAmps);
 
-            % Extract duration from byte 13 and 14
-            duration = bitor(bitshift(bitand(clicksinminute(:,14), 240), 4), clicksinminute(:,15));
+            % Now apply amplitude thresholding (e.g., for KERNO-F classifier)
+            clicksinminute(realAmp <= 10, :) = [];
 
-            % Define masks for logic
-            shortClicks = (Ncyc < 5) | (duration < 100);
-            midrange    = (Ncyc >= 5 & Ncyc < 16) & (duration >= 100);
-            longClicks  = (Ncyc >= 16) & (duration >= 100);
+            % % Update/extract values after filtering
+            Ncyc = double(clicksinminute(:,3));% Number if cycles
+            IPIatMax = double(clicksinminute(:, 7)) + 1 ; % IPI is byte 6 + 1
+            duration = bitor(bitshift(bitand(double(clicksinminute(:,14)), 240), 4), double(clicksinminute(:,15)));
 
-            % Midrange clicks: use (4000 * (Ncyc - 3)) / duration
-            ClkKHZdur(midrange) = round((4000 * (Ncyc(midrange) - 3)) ./ duration(midrange));
-            
-            % Long clicks: use 60000 / duration
-            ClkKHZdur(longClicks) = round(60000 ./ duration(longClicks));
-            
-            % Replace duration estimate if it's >30 kHz different from IPI-based estimate
+            % % Get Frequency from IPI (always used)
+            ClkKHZpk = round(4000 ./ IPIatMax);  % same in Delphi + Java
+
+
+            % % Frequency from duration (conditionally used)
+            ClkKHZdur = ClkKHZpk; % default fallback
+
+            % Duration-based frequency rules from Delphi/Nick's code
+            midrange = (Ncyc >= 5 & Ncyc < 16) & (duration >= 100);
+            longclicks = (Ncyc >= 16) & (duration >= 100);
+
+            ClkKHZdur(midrange)  = round((4000 .* (Ncyc(midrange) - 3)) ./ duration(midrange));
+            ClkKHZdur(longclicks) = round(60000 ./ duration(longclicks));
+
+            % Delphi code: If discrepancy >30 kHz, revert to IPI estimate
             diffTooBig = abs(ClkKHZdur - ClkKHZpk) > 30;
-            ClkKHZdur(diffTooBig) = ClkKHZpk(diffTooBig);  % revert to IPI-based value
+            ClkKHZdur(diffTooBig) = ClkKHZpk(diffTooBig);
 
-            clicksinminute(ClkKHZdur < 21 | ClkKHZdur > 221, :) = [];
+            % Determine which KHZ value is in use
+            % Note: In FPOD.exe, this is user-controlled. Default is to use ClkKHZpk
+            % If we want we can implement using duration-derived frequency:
+            useDurationFreq = false; % set true to match "ShowKHZfromDuration.Checked" from Nick's code
 
-            minutes(currentminute).nall=size(clicksinminute,1);
+            if useDurationFreq
+                ClkKHZinUse = ClkKHZdur;
+            else
+                ClkKHZinUse = ClkKHZpk;
+            end
+
+            validFreq = ClkKHZinUse > 20 & ClkKHZinUse <= 221;
+            clicksinminute = clicksinminute(validFreq, :);
+
+            % Diagnostics for filters:
+            disp(["Total clicks: ", size(allRecords,1)]);
+            disp(["After Sonar filter: ", size(clicksinminute,1)]);
+            disp(["After Amp filter: ", sum(realAmp > 10)]);
+            disp(["After Freq filter: ", sum(validFreq)]);
+
+            minutes(currentminute).nall=size(clicksinminute,1); % nall: number of valid clicks in minute (after filtering by amplitude and frequency)
+
         else
             minutes(currentminute).nall=0;
         end
