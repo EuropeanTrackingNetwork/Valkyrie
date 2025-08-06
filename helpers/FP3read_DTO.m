@@ -283,7 +283,7 @@ for currentminute=1:sum(minutebreaks)-1
                       minuteindexFP1(currentminute+1)-1, :);
 
             %Extract only click records (0–183)
-            clicksinminute = allRecords(allRecords(:,1) < 184, :);
+            clicksinminute = allRecords(allRecords(:,1) <= 183, :);
             
             %Filter sonar clicks
             %clicksinminute(clicksinminute(:,16) < 2, :) = [];
@@ -348,7 +348,7 @@ for currentminute=1:sum(minutebreaks)-1
                 ClkKHZinUse = ClkKHZpk;
             end
 
-            validFreq = ClkKHZinUse >= 22 & ClkKHZinUse <= 221;
+            validFreq = ClkKHZinUse >= 21 & ClkKHZinUse <= 221;
             clicksinminute = clicksinminute(validFreq, :);
 
             minutes(currentminute).nall=size(clicksinminute,1); % nall: number of valid clicks in minute (after filtering by amplitude and frequency)
