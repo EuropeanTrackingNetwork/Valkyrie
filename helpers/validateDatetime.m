@@ -33,6 +33,10 @@ function [errorMsg, formattedDate] = validateDatetime(inputStr,minDate)
             % try next format
         end
     end
+
+    if isempty(formattedDate)
+        formattedDate = NaT;
+    end
     % If none of the formats worked
     errorMsg = [errorMsg,"- Invalid datetime format. Please use format: yyyy-MM-dd HH:mm:ss."];
 
