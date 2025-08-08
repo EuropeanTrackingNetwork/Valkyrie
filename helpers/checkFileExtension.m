@@ -3,8 +3,21 @@ function [isValid,fileGroups,errorMsg] = checkFileExtension(files,check)
 % Function to check the selected files
 %=====================================
 
-%TO DO: Do we need this to check for file pairs - could just check
-%that at least C/FP3 files selected
+% Checks if there are a pair of files for all filenames (C/FP1 and C/FP3
+% have the same name if they are part of same recording/are a pair).
+% If errors found it will shown as an error message that the user have to
+% correct before they can move on.
+% 
+% Input: 
+% files = a list of the filenames (with extension) that have been selected
+% by the user
+% check = will run the check if equal to 1 (default)
+%
+% Output:
+% isValid = TRUE if there are no missing pairs
+% fileGroups = the filenames seperated in a struct based on the extension
+% of each file
+% errorMsg = error message. will be '' if no error found.
     
     % Supported file extensions
     supported = {'.CP1', '.CP3', '.FP1', '.FP3'};
