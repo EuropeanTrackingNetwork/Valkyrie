@@ -11,12 +11,16 @@ function [bgColorLat, bgColorLon, errorMsg] = validateCoordinates(lat,lon)
     % Prepare string
     errorMsg = '';
     
-    % If the latitude or longitude is invalid throw an error 
-    if ~isValidLat && isValidLon % latitude is invalid but longitude is valid
+    % If the latitude is invalid throw an error 
+    if ~isValidLat
         errorMsg = [errorMsg,"- Invalid latitude."];
-    elseif ~isValidLon && isValidLat % longitude is invalid but latitude is valid
-        errorMsg = [errorMsg,"- Invalid longitude."];
-    elseif ~isValidLat && ~isValidLon % both latitude and longitude are invalid
-        errorMsg = [errorMsg,"- Invalid latitude and longitude."];
     end
+    
+    if ~isValidLon
+        bgColorLon = 'white';
+    else
+        bgColorLon = [1 0.8 0.8]; % Light red
+        errorMsg = [errorMsg,"- Invalid longitude."];
+    end
+  
 end

@@ -1,0 +1,32 @@
+{
+  "MinDate": "1990-01-01 00:00:00 ",
+  "MetadataSpec": {
+    "RCV_PROJECT": { "Type": "String" },
+    "RECEIVER": { "Type": "String" },
+    "ACTIVATION_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC" },
+    "STATION_NAME": { "Type": "String" },
+    "DEPLOY_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC" },
+    "DEPLOY_LAT": { "Type": "Float" },
+    "DEPLOY_LONG": { "Type": "Float" },
+    "VALID_DATA_UNTIL_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC" },
+    "RECOVER_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC" },
+    "ACOUSTIC_RELEASE_NUMBER": { "Type": "String" },
+    "HYDROPHONE_CABLE_LENGTH": { "Type": "String" },
+    "MOORING_TYPE": {
+      "Type": "Predefined",
+      "Options": ["Surface - buoy", "Surface - Wind turbine", "Bottom mooring"]
+    },
+    "RECORDING_NAME": { "Type": "String" },
+    "BATTERY_END_DATE": { "Type": "Datetime", "TimeZone": "UTC" },
+    "DOWNLOAD_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC" },
+    "CLASSIFIER": {
+      "Type": "Predefined",
+      "Options": ["KERNO-F", "HEL1", "Genenc"]
+    },
+    "SPECIES_PREFERENCES": {
+      "Type": "Predefined",
+      "Options": ["No Dolphins", "No Sonar"]
+    },
+    "POD_FILE": { "Type": "String" }
+  }
+}

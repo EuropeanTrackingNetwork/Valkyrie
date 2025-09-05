@@ -4,33 +4,40 @@ function [errorMsg, formattedDate] = validateDatetime(inputStr,minDate)
 %======================================
 % OBS: the datetime format requested by ETN is ISO8601
 % (yyyy-MM-ddTHH:mm:ssZ)
-    % minDate = datetime(1990, 1, 1,'TimeZone', 'UTC');
+
+% Prepare strings 
     errorMsg = '';
     formattedDate = ''; 
             
+    % Specify common format for datetime that might have been used
     commonFormats = {
         'yyyy-MM-dd HH:mm:ss','yyyy-MM-dd''T''HH:mm:ss''Z''','dd-MM-yyyy HH:mm:ss', ...
         'MM/dd/yyyy HH:mm:ss', 'dd/MM/yyyy HH:mm:ss', 'yyyy/MM/dd HH:mm:ss', ...
         'yyyy-MM-dd''T''HH:mm:ss'
     };
 
- 
+ % test the datetime in the metadata against each of the common types of
+ % format
     for i = 1:length(commonFormats)
         try
+            % Try to use the datetime function directly
             dt = datetime(inputStr, 'InputFormat', commonFormats{i}, 'TimeZone', 'UTC');
 
+            % check if the datetime in metadata occurs before the minimum
+            % expected date
             if dt < minDate
                 errorMsg = [errorMsg,"- Check that date is added correctly."];
             end
             
+            % If all times are equal to zero throw an error
             if hour(dt) == 0 && minute(dt) == 0 && second(dt) == 0
                 errorMsg = [errorMsg,"- Check that the time is added correctly."];
             end
 
-            formattedDate = dt;
+            formattedDate = dt; % save formatted date 
             return; % will return as soon at the correct format has been found - without an error message generated
         catch
-            % try next format
+            % try next format if the correct hasn't been found
         end
     end
 

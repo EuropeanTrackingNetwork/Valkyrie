@@ -7,12 +7,15 @@ function tbl = validateMetadata(tbl, minDate)
     lats    = string(tbl.Latitude);
     lons    = string(tbl.Longitude);
 
-    % Use existing helper functions with arrayfun
+    % Use existing helper functions with arrayfun to check if datetime
+    % format is correct
     [errDep, dtDep] = arrayfun(@(s) validateDatetime(s, minDate), depStrs, 'UniformOutput', false);
     [errRec, dtRec] = arrayfun(@(s) validateDatetime(s, minDate), recStrs, 'UniformOutput', false);
     dtDep = vertcat(dtDep{:});
     dtRec = vertcat(dtRec{:});
 
+    % Use existing helper function to check if coordinates are in correct
+    % format
     [~, ~, errCoord] = arrayfun(@(lat,lon) validateCoordinates(lat,lon), lats, lons, 'UniformOutput', false);
 
     % Collect all error messages
