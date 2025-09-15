@@ -13,18 +13,18 @@
     "ACOUSTIC_RELEASE_NUMBER": { "Type": "String" },
     "HYDROPHONE_CABLE_LENGTH": { "Type": "String" },
     "MOORING_TYPE": {
-      "Type": "Predefined",
+      "Type": "Factor",
       "Options": ["Surface - buoy", "Surface - Wind turbine", "Bottom mooring"]
     },
     "RECORDING_NAME": { "Type": "String" },
     "BATTERY_END_DATE": { "Type": "Datetime", "TimeZone": "UTC" },
     "DOWNLOAD_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC" },
-    "CLASSIFIER": {
-      "Type": "Predefined",
+    "ADDITIONAL_CLASSIFIER": {
+      "Type": "Factor",
       "Options": ["KERNO-F", "HEL1", "Genenc"]
     },
     "SPECIES_PREFERENCES": {
-      "Type": "Predefined",
+      "Type": "Factor",
       "Options": ["No Dolphins", "No Sonar"]
     },
     "POD_FILE": { "Type": "String" }

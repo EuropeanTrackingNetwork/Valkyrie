@@ -4,6 +4,8 @@ function msg = messages(key, varargin)
 %   Usage: msg = messages('key', optional_args)
 
     switch key
+        case 'MissingConfig'
+            msg = 'Missing configuration file during startup';
         case 'importStart'
             msg = 'Importing data...';
         case 'readingFile'
