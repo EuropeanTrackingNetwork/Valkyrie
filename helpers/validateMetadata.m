@@ -1,11 +1,17 @@
 % Ensure that both datetime and coordinates are in the correct format
 
-function tbl = validateMetadata(tbl, minDate)
+function tbl = validateMetadata(tbl, minDate, roles)
+
     % Convert to string
-    depStrs = string(tbl.DeploymentDateTime);
-    recStrs = string(tbl.RecoveryDateTime);
-    lats    = string(tbl.Latitude);
-    lons    = string(tbl.Longitude);
+    depField = roles.DeployDate;
+    recField = roles.RecoverDate;
+    latField = roles.Latitude;
+    lonField = roles.Longitude;
+
+    depStrs = string(tbl.(depField));
+    recStrs = string(tbl.(recField));
+    lats    = string(tbl.(latField));
+    lons    = string(tbl.(lonField));
 
     % Use existing helper functions with arrayfun to check if datetime
     % format is correct
