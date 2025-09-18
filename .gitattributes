@@ -1,0 +1,7 @@
+*.mat filter=lfs diff=lfs merge=lfs -text
+*.fig filter=lfs diff=lfs merge=lfs -text
+*.mlx filter=lfs diff=lfs merge=lfs -text
+*.FP1 filter=lfs diff=lfs merge=lfs -text
+*.CP1 filter=lfs diff=lfs merge=lfs -text
+*.CP3 filter=lfs diff=lfs merge=lfs -text
+*.FP3 filter=lfs diff=lfs merge=lfs -text
