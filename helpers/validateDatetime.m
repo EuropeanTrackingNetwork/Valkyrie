@@ -1,4 +1,4 @@
-function [errorMsg, formattedDate] = validateDatetime(inputStr,minDate)
+function [errorMsg, formattedDate] = validateDatetime(inputStr,minDate,dtFormats)
 %======================================
 % Function to validate datetime format
 %======================================
@@ -10,15 +10,11 @@ function [errorMsg, formattedDate] = validateDatetime(inputStr,minDate)
     formattedDate = ''; 
             
     % Specify common format for datetime that might have been used
-    commonFormats = {
-        'yyyy-MM-dd HH:mm:ss','yyyy-MM-dd''T''HH:mm:ss''Z''','dd-MM-yyyy HH:mm:ss', ...
-        'MM/dd/yyyy HH:mm:ss', 'dd/MM/yyyy HH:mm:ss', 'yyyy/MM/dd HH:mm:ss', ...
-        'yyyy-MM-dd''T''HH:mm:ss'
-    };
+    commonFormats = dtFormats;
 
  % test the datetime in the metadata against each of the common types of
  % format
-    for i = 1:length(commonFormats)
+    for i = 1:numel(commonFormats)
         try
             % Try to use the datetime function directly
             dt = datetime(inputStr, 'InputFormat', commonFormats{i}, 'TimeZone', 'UTC');

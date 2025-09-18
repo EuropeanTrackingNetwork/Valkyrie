@@ -1,6 +1,6 @@
 % Ensure that both datetime and coordinates are in the correct format
 
-function tbl = validateMetadata(tbl, minDate, roles)
+function [tbl, errorMsg] = validateMetadata(tbl, minDate, roles, dtFormats)
 
     % Convert to string
     depField = roles.DeployDate;
@@ -15,14 +15,14 @@ function tbl = validateMetadata(tbl, minDate, roles)
 
     % Use existing helper functions with arrayfun to check if datetime
     % format is correct
-    [errDep, dtDep] = arrayfun(@(s) validateDatetime(s, minDate), depStrs, 'UniformOutput', false);
-    [errRec, dtRec] = arrayfun(@(s) validateDatetime(s, minDate), recStrs, 'UniformOutput', false);
+    [errDep, dtDep] = arrayfun(@(s) validateDatetime(s, minDate, dtFormats), depStrs, 'UniformOutput', false);
+    [errRec, dtRec] = arrayfun(@(s) validateDatetime(s, minDate, dtFormats), recStrs, 'UniformOutput', false);
     dtDep = vertcat(dtDep{:});
     dtRec = vertcat(dtRec{:});
 
     % Use existing helper function to check if coordinates are in correct
     % format
-    [~, ~, errCoord] = arrayfun(@(lat,lon) validateCoordinates(lat,lon), lats, lons, 'UniformOutput', false);
+    [errCoord] = arrayfun(@(lat,lon) validateCoordinates(lat,lon), lats, lons, 'UniformOutput', false);
 
     % Collect all error messages
     errorMsgs = [];
@@ -39,10 +39,10 @@ function tbl = validateMetadata(tbl, minDate, roles)
     end
 
     if ~isempty(errorMsgs)
-        error(join(errorMsgs, newline));
+        error(strjoin(errorMsgs, newline));
     end
 
-    % Replace validated columns
+    % Replace validated columnsdep
     tbl.DeploymentDateTime = dtDep;
     tbl.RecoveryDateTime = dtRec;
 end

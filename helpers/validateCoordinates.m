@@ -1,4 +1,4 @@
-function [bgColorLat, bgColorLon, errorMsg] = validateCoordinates(lat,lon)
+function [errorMsg] = validateCoordinates(lat,lon)
 %===================================================
 % Fucntion to validate latitude and longitude inputs
 %===================================================
