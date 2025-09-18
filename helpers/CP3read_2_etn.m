@@ -13,7 +13,7 @@ arguments
 end
 
 % extract data
-fieldsToKeep = {'time', 'temperature', 'angle', 'nall', 'clickLow', 'clickHi', 'clickMed', 'no_of_clicks', 'train'};
+fieldsToKeep = {'filename','time', 'temperature', 'angle', 'nall', 'clickLow', 'clickHi', 'clickMed', 'no_of_clicks', 'train'};
 allFields = fieldnames(outputminutes);
 fieldsToRemove = setdiff(allFields, fieldsToKeep);
 ETN = rmfield(outputminutes, fieldsToRemove);
@@ -61,6 +61,6 @@ ETN.minsON = double(ETN.nall > 0 & ETN.angle < 80) ;
 ETN.train = [] ;
 
 % rename columns to match ETN input fields
-ETN.Properties.VariableNames = {'DETECTION_DATE_TIME', 'TEMPERATURE', 'ANGLE', 'NUMBER_CLICKS_TOTAL', 'QUALITY', 'NUMBER_CLICKS_FILTERED', 'DPM', 'MILLISECONDS', 'TIME_LOST_PERCENTAGE', 'SPECIES', 'RECORDED'};
+ETN.Properties.VariableNames = {'DETECTION_DATE_TIME', 'TEMPERATURE', 'ANGLE', 'NUMBER_CLICKS_TOTAL', 'filename', 'QUALITY', 'NUMBER_CLICKS_FILTERED', 'DPM', 'MILLISECONDS', 'TIME_LOST_PERCENTAGE', 'SPECIES', 'RECORDED'};
 
 end

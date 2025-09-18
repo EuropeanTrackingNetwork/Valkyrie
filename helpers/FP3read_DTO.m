@@ -364,3 +364,7 @@ for currentminute=1:sum(minutebreaks)-1
         minutes(currentminute).minON = 1 ;
     end
 end
+
+%add in the file name where detections came from
+[minutes.filename] = deal(filename) ;
+[trains.filename] = deal(filename) ;
