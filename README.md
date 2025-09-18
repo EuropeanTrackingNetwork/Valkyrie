@@ -12,7 +12,10 @@ This project is part of the EU DTO-BioFlow (https://dto-bioflow.eu/). The focus 
 - File import: the POD files are imported sequentially and the import function depends on the file type (CPOD or FPOD)
 - Extracting output: the imported POD files will run through specific functions to extract and format the data for ingestion into the target database
 - Formatting: the files will be formatted to match database 
-- Upload: the data will upload output files to database 
+- Upload: the data will upload output files to database
+
+## Sample Data
+Sample data with which to test that your app is working properly has been added to the folder "SampleDeployments". This contains a selection of C-POD and F-POD files plus accompanying metadata. Please note that you must have large file storage (LFS) installed in order to download the POD files through your command line.
 
 ## Progress
 The tool is under development. 
