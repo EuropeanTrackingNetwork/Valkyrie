@@ -2,14 +2,14 @@
 % Function to prompt user to either choose a folder or seperate files to
 % upload. 
 
-function [selectedFiles, selectedPaths] = fileSelect(validExt)
+function [selectedFiles, selectedPath] = fileSelect(validExt)
     % Prompt user for folder or file selection
     choice = questdlg('Select a folder or individual files?', ...
                       'Choose Selection Mode', ...
                       'Folder', 'Files', 'Cancel', 'Folder');
 
     selectedFiles = {};
-    selectedPaths = {};
+    selectedPath = {};
 
     if strcmp(choice, 'Cancel') || isempty(choice)
         return;
@@ -28,10 +28,10 @@ function [selectedFiles, selectedPaths] = fileSelect(validExt)
                 any(strcmpi(validExt, lower(getExt(f.name)))), ...
                 allFiles);
 
-            selectedStructs = allFiles(isValid);
+            selectedStructs = allFiles(isValid); % all the files that fit the criteria
 
-            selectedFiles = {selectedStructs.name};
-            selectedPaths = fullfile({selectedStructs.folder}, {selectedStructs.name});
+            selectedFiles = {selectedStructs.name}; % file names with extension
+            selectedPath = unique(fullfile({selectedStructs.folder})); % path name to folder 
 
         case 'Files'
             [files, path] = uigetfile({'*.CP1;*.CP3;*.FP1;*.FP3', ...
@@ -45,7 +45,7 @@ function [selectedFiles, selectedPaths] = fileSelect(validExt)
             end
 
             selectedFiles = files;
-            selectedPaths = fullfile(path, files);
+            selectedPath = unique(path); % since all files are within same folder save only one example
     end
 end
 
