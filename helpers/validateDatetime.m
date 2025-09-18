@@ -22,13 +22,15 @@ function [errorMsg, formattedDate] = validateDatetime(inputStr,minDate,dtFormats
             % check if the datetime in metadata occurs before the minimum
             % expected date
             if dt < minDate
-                errorMsg = [errorMsg,"- Check that date is added correctly."];
+                errorMsg = [errorMsg," Check that date is added correctly."];
             end
             
+            % OBS: have silenced this as users will often set a system to
+            % start at midnight
             % If all times are equal to zero throw an error
-            if hour(dt) == 0 && minute(dt) == 0 && second(dt) == 0
-                errorMsg = [errorMsg,"- Check that the time is added correctly."];
-            end
+            % if hour(dt) == 0 && minute(dt) == 0 && second(dt) == 0
+            %     errorMsg = [errorMsg," Check that the time is added correctly."];
+            % end
 
             formattedDate = dt; % save formatted date 
             return; % will return as soon at the correct format has been found - without an error message generated

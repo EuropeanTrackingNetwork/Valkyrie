@@ -8,19 +8,19 @@ function fullTable = matchFilenamesWithPOD(metadataTbl, podFiles)
 
     % Initialize MATCH column
     metadataTbl.MATCH = repmat("N", height(metadataTbl), 1);
-    metadataTbl.MATCH(ismember(metadataTbl.Filename, podFilenames)) = "Y";
+    metadataTbl.MATCH(ismember(metadataTbl.POD_FILE, podFilenames)) = "Y";
 
     % Find unmatched POD files
-    matchedFilenames = metadataTbl.Filename(metadataTbl.MATCH == "Y");
+    matchedFilenames = metadataTbl.POD_FILE(metadataTbl.MATCH == "Y");
     unmatchedPodFiles = podFilenames(~ismember(podFilenames, matchedFilenames));
 
     % Create rows for unmatched POD files
     emptyRow = metadataTbl(1, :);
-    emptyRow(:) = {missing}; % Set all fields to missing
+    emptyRow(:,:) = {missing}; % Set all fields to missing
     emptyRow.MATCH = "N";
 
     podOnlyRows = repmat(emptyRow, numel(unmatchedPodFiles), 1);
-    podOnlyRows.Filename = unmatchedPodFiles;
+    podOnlyRows.POD_FILE = unmatchedPodFiles(:);
 
     % Combine metadata and unmatched POD rows
     fullTable = [metadataTbl; podOnlyRows];

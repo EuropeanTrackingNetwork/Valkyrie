@@ -28,10 +28,10 @@ function [tbl, errorMsg] = validateMetadata(tbl, minDate, roles, dtFormats)
     errorMsgs = [];
     for i = 1:height(tbl)
         if ~isempty(errDep{i})
-            errorMsgs = [errorMsgs; "Row " + i + ": DeploymentDateTime - " + errDep{i}];
+            errorMsgs = [errorMsgs; "Row " + i + ": " + depField + " -" + errDep{i}];
         end
         if ~isempty(errRec{i})
-            errorMsgs = [errorMsgs; "Row " + i + ": RecoveryDateTime - " + errRec{i}];
+            errorMsgs = [errorMsgs; "Row " + i + ": " + recField + " -" + errRec{i}];
         end
         if ~isempty(errCoord{i})
             errorMsgs = [errorMsgs; "Row " + i + ": " + errCoord{i}];
@@ -43,6 +43,6 @@ function [tbl, errorMsg] = validateMetadata(tbl, minDate, roles, dtFormats)
     end
 
     % Replace validated columnsdep
-    tbl.DeploymentDateTime = dtDep;
-    tbl.RecoveryDateTime = dtRec;
+    tbl.(roles.DeployDate) = dtDep;
+    tbl.(roles.RecoverDate) = dtRec;
 end
