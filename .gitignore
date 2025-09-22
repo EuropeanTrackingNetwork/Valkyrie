@@ -1,0 +1,7 @@
+# ---------------------
+# MATLAB .gitignore
+# ---------------------
+
+# Autosave / backup files
+*.asv
+*.m~
