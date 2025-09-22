@@ -32,7 +32,9 @@ function [errorMsg, formattedDate] = validateDatetime(inputStr,minDate,dtFormats
             %     errorMsg = [errorMsg," Check that the time is added correctly."];
             % end
 
+            dt.Format = 'yyyy-MM-dd HH:mm:ss';
             formattedDate = dt; % save formatted date 
+
             return; % will return as soon at the correct format has been found - without an error message generated
         catch
             % try next format if the correct hasn't been found

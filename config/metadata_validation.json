@@ -3,7 +3,11 @@
   "MetadataSpec": {
     "RCV_PROJECT": { "Type": "String" },
     "RECEIVER": { "Type": "String" },
-    "ACTIVATION_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC" },
+    "ACTIVATION_DATE_TIME": { 
+        "Type": "Datetime", 
+        "TimeZone": "UTC",
+        "Role": "ActivationDate"
+    },
     "STATION_NAME": { "Type": "String" },
     "DEPLOY_DATE_TIME": { 
       "Type": "Datetime", 
@@ -18,7 +22,11 @@
       "Type": "Float",
       "Role": "Longitude"
     },
-    "VALID_DATA_UNTIL_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC" },
+    "VALID_DATA_UNTIL_DATE_TIME": { 
+        "Type": "Datetime", 
+        "TimeZone": "UTC",
+        "Role": "ValidUntilDate"
+    },
     "RECOVER_DATE_TIME": { 
       "Type": "Datetime", 
       "TimeZone": "UTC",
@@ -31,8 +39,16 @@
       "Options": ["Surface - buoy", "Surface - Wind turbine", "Bottom mooring"]
     },
     "RECORDING_NAME": { "Type": "String" },
-    "BATTERY_END_DATE": { "Type": "Datetime", "TimeZone": "UTC" },
-    "DOWNLOAD_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC" },
+    "BATTERY_END_DATE": { 
+        "Type": "Datetime", 
+        "TimeZone": "UTC", 
+        "Role": "BatteryEndDate"
+    },
+    "DOWNLOAD_DATE_TIME": { 
+        "Type": "Datetime", 
+        "TimeZone": "UTC",
+        "Role": "DownloadDate"
+    },
     "ADDITIONAL_CLASSIFIER": {
       "Type": "Factor",
       "Options": ["KERNO-F", "HEL1", "Genenc"]

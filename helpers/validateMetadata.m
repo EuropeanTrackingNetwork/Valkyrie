@@ -1,48 +1,63 @@
 % Ensure that both datetime and coordinates are in the correct format
-
 function [tbl, errorMsg] = validateMetadata(tbl, minDate, roles, dtFormats)
+%VALIDATEMETADATA Validate datetime and coordinate fields in metadata table
 
-    % Convert to string
-    depField = roles.DeployDate;
-    recField = roles.RecoverDate;
+    % --- Datetime fields you want to validate ---
+    dtRoleNames = {
+        'DeployDate'
+        'RecoverDate'
+        'ActivationDate'
+        'ValidUntilDate'
+        'BatteryEndDate'
+        'DownloadDate'
+    };
+
+    % Storage for errors
+    allErrs = strings(0,1);
+
+    % --- Loop over datetime roles ---
+    for r = 1:numel(dtRoleNames)
+        roleName = dtRoleNames{r};
+        fieldName = roles.(roleName);
+
+        % Convert to string for validation
+        strs = string(tbl.(fieldName));
+
+        % Validate each entry
+        [err, dt] = arrayfun(@(s) validateDatetime(s, minDate, dtFormats), ...
+                             strs, 'UniformOutput', false);
+
+        % Collect results
+        tbl.(fieldName) = vertcat(dt{:});
+
+        % Gather error messages
+        for i = 1:numel(err)
+            if ~isempty(err{i})
+                allErrs(end+1) = "Row " + i + ": " + fieldName + " - " + err{i};
+            end
+        end
+    end
+
+    % --- Coordinates (special case with two fields) ---
     latField = roles.Latitude;
     lonField = roles.Longitude;
 
-    depStrs = string(tbl.(depField));
-    recStrs = string(tbl.(recField));
-    lats    = string(tbl.(latField));
-    lons    = string(tbl.(lonField));
+    lats = string(tbl.(latField));
+    lons = string(tbl.(lonField));
 
-    % Use existing helper functions with arrayfun to check if datetime
-    % format is correct
-    [errDep, dtDep] = arrayfun(@(s) validateDatetime(s, minDate, dtFormats), depStrs, 'UniformOutput', false);
-    [errRec, dtRec] = arrayfun(@(s) validateDatetime(s, minDate, dtFormats), recStrs, 'UniformOutput', false);
-    dtDep = vertcat(dtDep{:});
-    dtRec = vertcat(dtRec{:});
+    errCoord = arrayfun(@(lat,lon) validateCoordinates(lat,lon), ...
+                        lats, lons, 'UniformOutput', false);
 
-    % Use existing helper function to check if coordinates are in correct
-    % format
-    [errCoord] = arrayfun(@(lat,lon) validateCoordinates(lat,lon), lats, lons, 'UniformOutput', false);
-
-    % Collect all error messages
-    errorMsgs = [];
-    for i = 1:height(tbl)
-        if ~isempty(errDep{i})
-            errorMsgs = [errorMsgs; "Row " + i + ": " + depField + " -" + errDep{i}];
-        end
-        if ~isempty(errRec{i})
-            errorMsgs = [errorMsgs; "Row " + i + ": " + recField + " -" + errRec{i}];
-        end
+    for i = 1:numel(errCoord)
         if ~isempty(errCoord{i})
-            errorMsgs = [errorMsgs; "Row " + i + ": " + errCoord{i}];
+            allErrs(end+1) = "Row " + i + ": " + errCoord{i};
         end
     end
 
-    if ~isempty(errorMsgs)
-        error(strjoin(errorMsgs, newline));
+    % --- Throw error if any found ---
+    if ~isempty(allErrs)
+        error(strjoin(allErrs,newline));
     end
 
-    % Replace validated columnsdep
-    tbl.(roles.DeployDate) = dtDep;
-    tbl.(roles.RecoverDate) = dtRec;
+    errorMsg = ''; % for compatibility
 end

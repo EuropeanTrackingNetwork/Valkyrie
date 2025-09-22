@@ -45,7 +45,7 @@ function [selectedFiles, selectedPath] = fileSelect(validExt)
             end
 
             selectedFiles = files;
-            selectedPath = unique(path); % since all files are within same folder save only one example
+            selectedPath = path; % since all files are within same folder save only one example
     end
 end
 

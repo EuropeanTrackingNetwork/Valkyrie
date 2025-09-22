@@ -135,12 +135,13 @@ if strcmp('.FP3',filename(end-3:end)) || strcmp('.fp3',filename(end-3:end))
 end
 %file=fopen([filename,'.FP3']);
 file = fopen([path,'\', filename, '.FP3']) ; % includes path as argument 
-FP3_data=fread(file,[16,inf]); % read in so table fits with the 16-bit format - first 65 rows is the header
+FP3_data=fread(file,[16,inf],'*uint8'); % read in so table fits with the 16-bit format - first 65 rows is the header
 FP3_data = FP3_data'; % transpose data so each row is 16-byte minute info and the first column will indicate what information each byte/column will hold (see above)
 fclose(file);
 
 % Get starttime from the header
-starttime = ((FP3_data(17,1)*256+FP3_data(17,2))*256+FP3_data(17,3))*256+FP3_data(17,4);
+starttime = double(FP3_data(17,1:4));
+starttime = ((starttime(1)*256 + starttime(2))*256 + starttime(3))*256 + starttime(4);
 starttimeFP3=datenum([1899 12 30 0 starttime 0]); % changed from datenum
 %datebase = 1899-12-30 00:00
 
@@ -164,11 +165,13 @@ else
     noFP1=true;
 end
 if ~noFP1
-    FP1_data=fread(file,[16,inf]);
-    FP1_data=FP1_data';
-    FP1_data=FP1_data(65:end,:) ; % remove header information
-    FP1_data(ismember(FP1_data(:,1), 255), :) = []; %delete end of file markers
+    FP1_data=fread(file,[16,inf],'*uint8');
     fclose(file);
+
+    FP1_data=FP1_data';
+    FP1_data=FP1_data(65:end,:); % remove header information
+    FP1_data(ismember(FP1_data(:,1), 255), :) = []; %delete end of file markers
+    
 end
 
 %% Find minute-recordings
@@ -198,7 +201,7 @@ trainno=1;
 for currentminute=1:sum(minutebreaks)-1
     minutes(currentminute).time=starttimeFP3+(currentminute-1)/1440; % convert time to the right format
     minutes(currentminute).temperature=FP3_data(minuteindex(currentminute),8); % get temperature in current minute from column 8
-    minutes(currentminute).angle=round(acosd(1-FP3_data(minuteindex(currentminute),4)/128)); % get angle in current minute from column 4
+    minutes(currentminute).angle=round(acosd(1-double(FP3_data(minuteindex(currentminute),4))/128)); % get angle in current minute from column 4
     if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty 
         clicksinminute=FP3_data(minuteindex(currentminute)+1:minuteindex(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
         clickdata = clicksinminute(clicksinminute(:,1)<=183,:); % get click data record for minute - needed for freq filtering and train duration
