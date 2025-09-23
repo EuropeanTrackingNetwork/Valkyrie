@@ -31,7 +31,7 @@ function [selectedFiles, selectedPath] = fileSelect(validExt)
             selectedStructs = allFiles(isValid); % all the files that fit the criteria
 
             selectedFiles = {selectedStructs.name}; % file names with extension
-            selectedPath = unique(fullfile({selectedStructs.folder})); % path name to folder 
+            selectedPath = selectedStructs(1).folder; % path name to folder 
 
         case 'Files'
             [files, path] = uigetfile({'*.CP1;*.CP3;*.FP1;*.FP3', ...

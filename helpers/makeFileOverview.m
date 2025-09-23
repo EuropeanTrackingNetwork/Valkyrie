@@ -46,6 +46,7 @@ end
 
 % Add detection span
 if ~isempty(detections) && ismember('filename', detections.Properties.VariableNames)
+    detections.DETECTION_DATE_TIME = datetime(detections.DETECTION_DATE_TIME);
     detSummary = groupsummary(detections, 'filename', {'min','max'}, 'DETECTION_DATE_TIME');
     detSummary.Duration = detSummary.max_DETECTION_DATE_TIME - detSummary.min_DETECTION_DATE_TIME;
 
