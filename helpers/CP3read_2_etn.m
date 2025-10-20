@@ -45,6 +45,12 @@ for i = 1:height(ETN)
     end
 end
 
+% round angle
+ETN.angle = round([ETN.angle]);
+
+% change quality to names
+ETN.quality = categorical(ETN.quality, [1 2 3], {'Lo', 'Mod', 'Hi'});
+
 % change units from 0.2 microsecond steps to milliseconds
 ETN.milliseconds = ETN.milliseconds*0.0002 ; %IS THIS RIGHT
 
