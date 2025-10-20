@@ -22,10 +22,15 @@ ETN = struct2table(ETN);
 % Convert the serial dates to datetime
 ETN.time = datetime([ETN.time], 'ConvertFrom', 'datenum', 'Format', 'yyyy-MM-dd HH:mm:ss');
 
+% Round angle
+ETN.angle = round(ETN.angle);
+
 % Separate out by quality
 ETN = stack(ETN, {'clickHi', 'clickMed', 'clickLow'}, 'NewDataVariableName','number_clicks_filtered','IndexVariableName','quality') ;
-ETN.quality = double(categorical(ETN.quality, {'clickLow', 'clickMed', 'clickHi'})) ;
-ETN.no_of_clicks = [];
+ETN.quality(ETN.quality == "clickHi") = "Hi";
+ETN.quality(ETN.quality == "clickMed") = "Mod";
+ETN.quality(ETN.quality == "clickLow") = "Lo";
+ETN.no_of_clicks = []; %get rid of this column now
 
 % After separation: DPM, milliseconds, N_filtered
 
