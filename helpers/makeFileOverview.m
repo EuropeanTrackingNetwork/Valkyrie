@@ -1,18 +1,22 @@
-function overview = makeFileOverview(filtFiles, MetaData, detections)
+function overview = makeFileOverview(filtFiles, MetaData, detections, ProcessingStatus)
 %MAKEFILEOVERVIEW Summarize processed files, metadata match, and deployment lengths
 %
 % Inputs:
 %   filtFiles  - cell array of file names actually processed
 %   metaData   - metadata table (must include MATCH, DEPLOY_DATE_TIME, RECOVER_DATE_TIME, etc.)
 %   detections - table of detections (must include time, filename)
-%
+%   status - log of successful processing or errors
 % Output:
 %   overview   - summary table to display
 
 n = numel(filtFiles);
-overview = table('Size',[n 4], ...
-    'VariableTypes', {'string','string','string','string'}, ...
-    'VariableNames', {'Filename','MetadataMatch','MetadataDeployment','DetectionSpan'});
+overview = table('Size',[n 5], ...
+    'VariableTypes', {'string','string','string','string','string'}, ...
+    'VariableNames', {'Filename','MetadataMatch','MetadataDeployment','DetectionSpan','ProcessingStatus'});
+
+% Processing Status
+ProcessingStatus = string(ProcessingStatus);
+overview.ProcessingStatus = ProcessingStatus;
 
 for i = 1:n
     [~, thisFile,~] = fileparts(filtFiles{i});
