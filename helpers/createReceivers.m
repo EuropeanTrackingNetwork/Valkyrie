@@ -7,30 +7,25 @@
 % RCV_STATUS: will always be ACTIVE
 % RCV_OWNER_ORGANIZATION: will leave out until the API can fill this in?
 
-function [receivers] = createReceivers(tbl,filename)
+function [receivers] = createReceivers(tbl,filename,ownerOrg)
 
-% remove all rows in metadata wihtout a file match
-% Keep only rows where MATCH == "Y"
-tblMatch = tbl(tbl.MATCH == "Y", :);
+
+% Keep only rows where there is at least one matched file
+tblMatch = tbl(tbl.MatchCount > 0, :);
+
 
 numRows = height(tblMatch) ; % number of receivers based on the unique number used in the metadata
 
-receivers = table('Size', [numRows,4], ...
-    'VariableTypes', {'string','double','string','string'}, ...
-    'VariableNames', {'RCV_MANUFACTURER','RECEIVER_ID_SERIAL_NUMBER','RECEIVER_MODEL','RCV_STATUS'});
+receivers = table('Size', [numRows,5], ...
+    'VariableTypes', {'string','string','double','string','string'}, ...
+    'VariableNames', {'RCV_MANUFACTURER','RCV_OWNER_ORGANISATION','RECEIVER_ID_SERIAL_NUMBER','RECEIVER_MODEL','RCV_STATUS'});
 
 receivers.RCV_MANUFACTURER(:) = "CHELONIA" ;
-receivers.RCV_STATUS(:) = "ACTIVE" ;
+receivers.RCV_OWNER_ORGANISATION(:) = ownerOrg;
 receivers.RECEIVER_ID_SERIAL_NUMBER = tblMatch.RECEIVER ;
+receivers.RECEIVER_MODEL = tblMatch.PodType;
+receivers.RCV_STATUS(:) = "ACTIVE" ;
 
-% For each row in the metadata, find the value in filenames that matches
-% POD_FILE and figure out what the file extension is
-[~, baseNames, extensions] = cellfun(@fileparts, filename, 'UniformOutput', false);
-extMap = containers.Map(baseNames, extensions);
-tblMatch.Extension = string(values(extMap, cellstr(tblMatch.POD_FILE)));
-
-receivers.RECEIVER_MODEL(tblMatch.Extension == ".CP3") = "C-POD" ;
-receivers.RECEIVER_MODEL(tblMatch.Extension == ".FP3") = "F-POD" ;
 
 % Only one receiver entry per POD, even if the POD is used in multiple
 % deployments

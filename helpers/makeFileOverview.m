@@ -12,11 +12,11 @@ function overview = makeFileOverview(filtFiles, MetaData, detections, Processing
 n = numel(filtFiles);
 overview = table('Size',[n 5], ...
     'VariableTypes', {'string','string','string','string','string'}, ...
-    'VariableNames', {'Filename','MetadataMatch','MetadataDeployment','DetectionSpan','ProcessingStatus'});
+    'VariableNames', {'Filename','MetadataMatch','MetadataDeployment','DetectionSpan','Status'});
 
 % Processing Status
 ProcessingStatus = string(ProcessingStatus);
-overview.ProcessingStatus = ProcessingStatus;
+overview.Status = ProcessingStatus;
 
 for i = 1:n
     [~, thisFile,~] = fileparts(filtFiles{i});
@@ -25,27 +25,24 @@ for i = 1:n
     overview.Filename(i) = thisFile;
 
     % Metadata match
-    if ismember('MATCH', MetaData.Properties.VariableNames)
-        mIdx = strcmp(MetaData.MATCH,"Y") & contains(MetaData.POD_FILE,thisFile);
+
+    % Metadata match: check if this file appears in MatchingFiles
+        mIdx = cellfun(@(x) any(contains(x,thisFile)), MetaData.MatchingFiles);
         if any(mIdx)
             overview.MetadataMatch(i) = "Yes";
         else
             overview.MetadataMatch(i) = "No";
         end
-    else
-        overview.MetadataMatch(i) = "Unknown";
-    end
 
-    % Metadata deployment length
+    % Metadata deployment length (Activation → Valid Until)
     if any(mIdx)
-        t1 = MetaData.DEPLOY_DATE_TIME(mIdx);
+        t1 = MetaData.ACTIVATION_DATE_TIME(mIdx);
         t2 = MetaData.VALID_DATA_UNTIL_DATE_TIME(mIdx);
         dur = t2 - t1;
         overview.MetadataDeployment(i) = formatDuration(dur);
     else
-        overview.MetadataDeployment(i) = duration(NaN,0,0);
+        overview.MetadataDeployment(i) = "N/A";
     end
-
 end
 
 % Add detection span
@@ -61,6 +58,8 @@ if ~isempty(detections) && ismember('filename', detections.Properties.VariableNa
         if any(fIdx)
             dur = detSummary.Duration(fIdx);
             overview.DetectionSpan(i) = formatDuration(dur);
+        else
+            overview.DetectionSpan(i) = "N/A";
         end
     end
 end

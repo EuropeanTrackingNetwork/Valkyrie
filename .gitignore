@@ -5,3 +5,8 @@
 # Autosave / backup files
 *.asv
 *.m~
+
+# Folders
+VLIZ_sampleDeployments/
+underDevelopment/
+

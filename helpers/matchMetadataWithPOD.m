@@ -1,0 +1,205 @@
+
+function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
+% MATCHMETADATAWITHPOD
+% Returns a unified table with:
+%   - original metadata rows annotated with MatchingFiles/MatchCount/PodType/FileName/RowType
+%   - appended "file-only" rows for CP3/FP3 files that do not match any metadata
+%
+% Inputs:
+%   fileList : cell array of filenames (can include CP1/FP1; we'll filter to CP3/FP3)
+%   metadata : table with at least RECEIVER, ACTIVATION_DATE_TIME, VALID_DATA_UNTIL_DATE_TIME
+%
+% Output:
+%   updatedMetadata : table (metadata rows + unmatched file rows)
+
+    % -----------------------------
+    % Normalize file list & filter
+    % -----------------------------
+    if ischar(fileList)
+        fileList = {fileList};
+    end
+    assert(iscell(fileList), 'fileList must be a cell array of char.');
+    isP3 = endsWith(fileList, {'.CP3', '.FP3'}, 'IgnoreCase', true);
+    fileList = fileList(isP3);
+
+    % -----------------------------
+    % Ensure datetime column types
+    % -----------------------------
+    % Only convert if needed; preserve existing datetimes
+    if ~isdatetime(metadata.ACTIVATION_DATE_TIME)
+        metadata.ACTIVATION_DATE_TIME = datetime(metadata.ACTIVATION_DATE_TIME, ...
+            'InputFormat','yyyy-MM-dd HH:mm:ss');
+    end
+    if ~isdatetime(metadata.VALID_DATA_UNTIL_DATE_TIME)
+        metadata.VALID_DATA_UNTIL_DATE_TIME = datetime(metadata.VALID_DATA_UNTIL_DATE_TIME, ...
+            'InputFormat','yyyy-MM-dd HH:mm:ss');
+    end
+    % Work with timezone-less comparisons
+    metadata.ACTIVATION_DATE_TIME.TimeZone = '';
+    metadata.VALID_DATA_UNTIL_DATE_TIME.TimeZone = '';
+
+    % -----------------------------
+    % Preallocate output columns
+    % -----------------------------
+    n = height(metadata);
+    matches   = cell(n, 1);
+    matchCnt  = zeros(n, 1);
+    podTypes  = strings(n, 1);
+    fileNames = strings(n, 1);      % optional: first matched filename for convenience
+    rowType   = repmat(string("metadata"), n, 1);
+
+    % -----------------------------
+    % Match loop (per metadata row)
+    % -----------------------------
+    for i = 1:n
+        % Extract digits from RECEIVER (e.g., "FPOD_123" -> "123")
+        rawReceiver   = string(metadata.RECEIVER(i));
+        receiverDigits = regexp(rawReceiver, '\d+', 'match');
+        if isempty(receiverDigits)
+            % No receiver ID -> no matches
+            matches{i}  = {};
+            matchCnt(i) = 0;
+            podTypes(i) = "";
+            continue;
+        end
+        receiverID = receiverDigits{1};
+
+        activationDate = dateshift(metadata.ACTIVATION_DATE_TIME(i), 'start', 'day');
+        validUntilDate = dateshift(metadata.VALID_DATA_UNTIL_DATE_TIME(i), 'start', 'day');
+
+        matchedFilesForRow = {};
+        typeDetected = "";
+
+        for j = 1:numel(fileList)
+            fname = fileList{j};
+            [~, name, ext] = fileparts(fname);
+
+            % Extract date (support underscores/dashes/spaces)
+            % Looks for YYYY MM DD in a flexible way: 2024_09_05 or 2024-09-05 or 2024 09 05
+            tokens = regexp(name, '(\d{4})[_\s-]?(\d{2})[_\s-]?(\d{2})', 'tokens');
+            if isempty(tokens), continue; end
+            dateStr = strjoin(tokens{1}, '');
+            fileDate = datetime(dateStr, 'InputFormat', 'yyyyMMdd');  % timezone-less
+
+            % Check POD ID match (support CPOD/FPOD naming)
+            % Examples: "...POD123..." or "...FPOD_123..."
+            podMatch = contains(name, "POD" + receiverID) || contains(name, "FPOD_" + receiverID);
+
+            % Check date range (inclusive, day-level)
+            inRange = (fileDate >= activationDate) && (fileDate <= validUntilDate);
+
+            if podMatch && inRange
+                matchedFilesForRow{end+1} = fname;
+
+                % Determine PodType from extension
+                if strcmpi(ext, '.CP3')
+                    typeDetected = "CPOD";
+                elseif strcmpi(ext, '.FP3')
+                    typeDetected = "FPOD";
+                end
+            end
+        end
+
+        matches{i}  = matchedFilesForRow;
+        matchCnt(i) = numel(matchedFilesForRow);
+        podTypes(i) = typeDetected;
+
+        % Convenience: fill FileName with first match (or missing)
+        if ~isempty(matchedFilesForRow)
+            fileNames(i) = string(matchedFilesForRow{1});
+        else
+            fileNames(i) = string(missing);
+        end
+    end
+
+    % -----------------------------------------
+    % Build updated metadata rows (annotated)
+    % -----------------------------------------
+    updatedMetadata = metadata;
+    % Add/overwrite output columns
+    updatedMetadata.MatchingFiles = matches;
+    updatedMetadata.MatchCount    = matchCnt;
+    updatedMetadata.PodType       = podTypes;
+    updatedMetadata.FileName      = fileNames;
+    updatedMetadata.RowType       = rowType;
+
+    % -----------------------------------------
+    % Determine unmatched files (CP3/FP3 only)
+    % -----------------------------------------
+    nonEmpty = ~cellfun(@isempty, matches);
+    if any(nonEmpty)
+        % Flatten safely; if all empty, leave empty list
+        matchedFlat = unique(string(vertcat(matches{nonEmpty})));
+    else
+        matchedFlat = string([]);  % no matches at all
+    end
+    allFilesStr = string(fileList(:));
+    % Case-insensitive comparison
+    unmatchedFilesStr = setdiff(lower(allFilesStr), lower(matchedFlat));
+    % Recover original casing by indexing back
+    % (lower(...) loses original case; map by lower)
+    lowerToOrig = containers.Map(lower(allFilesStr), allFilesStr);
+    unmatchedOrig = strings(numel(unmatchedFilesStr), 1);
+    for k = 1:numel(unmatchedFilesStr)
+        unmatchedOrig(k) = lowerToOrig(unmatchedFilesStr(k));
+    end
+
+    % -----------------------------------------
+    % Append "file-only" rows for unmatched files
+    % -----------------------------------------
+    nU = numel(unmatchedOrig);
+    if nU > 0
+        % Use the first row as a template for variable types
+        template = updatedMetadata(1, :);
+
+        % Convert template row to "missing" values by type
+        for v = 1:width(template)
+            val = template{1, v};
+            if iscell(val)
+                template{1, v} = {[]};
+            elseif isstring(val)
+                template{1, v} = string(missing);
+            elseif ischar(val)
+                template{1, v} = '';
+            elseif isnumeric(val)
+                template{1, v} = NaN;
+            elseif islogical(val)
+                template{1, v} = false;
+            elseif isdatetime(val)
+                template{1, v} = NaT;
+            elseif isduration(val)
+                template{1, v} = seconds(NaN);
+            elseif iscategorical(val)
+                template{1, v} = categorical(missing); % <undefined>
+            else
+                template{1, v} = []; % fallback
+            end
+        end
+
+        % Replicate template for each unmatched file
+        unmatchedTbl = repmat(template, nU, 1);
+
+        % Set the "output" columns for file-only rows
+        unmatchedTbl.MatchingFiles = repmat({{}}, nU, 1);
+        unmatchedTbl.MatchCount    = zeros(nU, 1);
+        unmatchedTbl.FileName      = unmatchedOrig;
+        unmatchedTbl.RowType       = repmat(string("file-only"), nU, 1);
+
+        % Derive PodType from extension
+        podTypeOut = strings(nU, 1);
+        for k = 1:nU
+            [~, ~, ext] = fileparts(unmatchedOrig(k));
+            if strcmpi(ext, '.CP3')
+                podTypeOut(k) = "CPOD";
+            elseif strcmpi(ext, '.FP3')
+                podTypeOut(k) = "FPOD";
+            else
+                podTypeOut(k) = string(missing);
+            end
+        end
+        unmatchedTbl.PodType = podTypeOut;
+
+        % Append to output
+        updatedMetadata = [updatedMetadata; unmatchedTbl];
+    end
+end

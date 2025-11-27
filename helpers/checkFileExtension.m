@@ -74,6 +74,6 @@ function [isValid,fileGroups,errorMsg] = checkFileExtension(files,check)
     % Final output
     isValid = true;
     errorMsg = '';
-    fileGroups = struct('cp1', cp1, 'cp3', cp3, 'fp1', fp1, 'fp3', fp3);
+    fileGroups = struct('cp1', {cp1}, 'cp3', {cp3}, 'fp1', {fp1}, 'fp3', {fp3});
 
 end
