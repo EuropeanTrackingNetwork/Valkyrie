@@ -24,15 +24,17 @@ function [tbl, errorMsg] = validateMetadata(tbl, minDate, roles, dtFormats)
         strs = string(tbl.(fieldName));
 
         % Validate each entry
-        [err, dt] = arrayfun(@(s) validateDatetime(s, minDate, dtFormats), ...
+        [errCell, dt] = arrayfun(@(s) validateDatetime_amb(s, minDate, dtFormats), ...
                              strs, 'UniformOutput', false);
 
         % Collect results
         tbl.(fieldName) = vertcat(dt{:});
 
         % Gather error messages
-        for i = 1:numel(err)
-            if ~isempty(err{i})
+
+        errStr = vertcat(errCell{:});   % string array
+        for i = 1:numel(errCell)
+            if strlength(errStr) > 0
                 allErrs(end+1) = "Row " + i + ": " + fieldName + " - " + err{i};
             end
         end
