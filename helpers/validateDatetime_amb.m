@@ -1,25 +1,26 @@
 
 function [errorMsg, formattedDate] = validateDatetime_amb(inputStr, minDate, dtFormats)
+
 % Validate and normalize datetime input, preferring dd/MM when ambiguous.
-% Output: UTC datetime with ISO-8601 display yyyy-MM-ddTHH:mm:ssZ.
+% Output: UTC datetime with ISO-8601 display yyyy-MM-ddTHH:mm:ss'Z'
+%
+% Empty input returns NaT with no error message (caller decides if that is acceptable).
+
 
     errorMsg = "";
-    formattedDate = NaT;
-    try
-        formattedDate.TimeZone = 'UTC'; 
-    catch
-    end
-
     s = strtrim(string(inputStr));
+
     if strlength(s) == 0
-        errorMsg = [errorMsg, "- Invalid datetime: empty string."];
-        return;
+        formattedDate = NaT('TimeZone','UTC');
+        return; % no error here — caller decides based on mandatory status
     end
 
-    % ---- 1) Try your non-ambiguous formats first (from JSON) ----
+    % Ensure dtFormats is a cell
     if isstring(dtFormats) || ischar(dtFormats)
         dtFormats = cellstr(dtFormats);
     end
+
+    % ---- 1) Try non-ambiguous formats from JSON ----
     for i = 1:numel(dtFormats)
         fmt = dtFormats{i};
         try
@@ -27,33 +28,29 @@ function [errorMsg, formattedDate] = validateDatetime_amb(inputStr, minDate, dtF
             dt.Format = "yyyy-MM-dd'T'HH:mm:ss'Z'";
             formattedDate = dt;
             if dt < minDate
-                errorMsg = [errorMsg, " Check that date is added correctly."];
+                errorMsg = "Date earlier than allowed minimum.";
             end
             return;
         catch
+            % try next
         end
     end
 
-    % ---- 2) Handle Excel-style slash dates; decide dd/MM vs MM/dd by the numbers ----
-    % Extract only the date part; don't try to capture time in regex.
+    % ---- 2) Handle slash dates (dd/MM vs MM/dd) by numbers ----
     dtTok = regexp(s, '^\s*(\d{1,2})/(\d{1,2})/(\d{4})', 'tokens', 'once');
     if ~isempty(dtTok)
         a = str2double(dtTok{1}); % first component
         b = str2double(dtTok{2}); % second component
 
-        % Decide date order (prefer dd/MM when ambiguous)
         if a <= 12 && b <= 12
-            dateFmts = {'dd/MM/uuuu', 'd/M/uuuu', 'MM/dd/uuuu', 'M/d/uuuu'}; % ambiguous -> dd/MM first
+            dateFmts = {'MM/dd/uuuu', 'M/d/uuuu'}; % prefer MM/dd
         elseif a <= 12 && b > 12
-            dateFmts = {'MM/dd/uuuu', 'M/d/uuuu'};                              % clearly MM/dd
-        else % a > 12 && b <= 12
-            dateFmts = {'dd/MM/uuuu', 'd/M/uuuu'};                              % clearly dd/MM
+            dateFmts = {'MM/dd/uuuu', 'M/d/uuuu'};
+        else
+            dateFmts = {'dd/MM/uuuu', 'd/M/uuuu'};
         end
 
-        % Try multiple time patterns and date-only as candidates.
-        % (We don't require them in regex; datetime will accept 1-2 digits for HH/mm/ss with HH/mm/ss tokens.)
         timeParts = { ' HH:mm:ss', ' HH:mm', '' };
-
         candidates = {};
         for df = 1:numel(dateFmts)
             for tp = 1:numel(timeParts)
@@ -67,17 +64,17 @@ function [errorMsg, formattedDate] = validateDatetime_amb(inputStr, minDate, dtF
                 dt = datetime(s, 'InputFormat', fmt, 'TimeZone', 'UTC');
                 dt.Format = "yyyy-MM-dd'T'HH:mm:ss'Z'";
                 formattedDate = dt;
-
                 if dt < minDate
-                    errorMsg = [errorMsg, " Check that date is added correctly."];
+                    errorMsg = "Date earlier than allowed minimum.";
                 end
                 return;
             catch
+                % continue
             end
         end
     end
 
-    % ---- 3) Excel serial fallback (e.g., "45276.5") ----
+    % ---- 3) Excel serial fallback ----
     if ~isempty(regexp(s, '^\s*\d+(\.\d+)?\s*$', 'once'))
         val = str2double(s);
         if ~isnan(val)
@@ -85,23 +82,30 @@ function [errorMsg, formattedDate] = validateDatetime_amb(inputStr, minDate, dtF
                 dt = datetime(val, 'ConvertFrom', 'excel', 'TimeZone', 'UTC');
                 dt.Format = "yyyy-MM-dd'T'HH:mm:ss'Z'";
                 formattedDate = dt;
-
                 if dt < minDate
-                    errorMsg = [errorMsg, " Check that date is added correctly."];
+                    errorMsg = "Date earlier than allowed minimum.";
                 end
                 return;
             catch
+                % continue
             end
         end
     end
 
-    % ---- 4) Fail with guidance ----
-    if isnat(formattedDate)
-        try
-            formattedDate.TimeZone = 'UTC';
-            formattedDate.Format = "yyyy-MM-dd'T'HH:mm:ss'Z'";
-        catch
+
+    % 4) As an extra robustness step, try MATLAB auto-parse (often handles "04-Sep-2022 08:43:00")
+    try
+        dt = datetime(s, 'TimeZone', 'UTC'); % let MATLAB infer
+        dt.Format = "yyyy-MM-dd'T'HH:mm:ss'Z'";
+        formattedDate = dt;
+        if dt < minDate
+            errorMsg = "Date earlier than allowed minimum.";
         end
-        errorMsg = [errorMsg, "- Invalid datetime format. Please use format: yyyy-MM-ddTHH:mm:ssZ."];
+        return;
+    catch
     end
+
+    % ---- 5) Fail with guidance ----
+    formattedDate = NaT('TimeZone','UTC');
+    errorMsg = "- Invalid datetime format. Please use format: yyyy-MM-ddTHH:mm:ssZ.";
 end

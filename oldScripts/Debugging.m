@@ -11,6 +11,10 @@ spec = Config.MetadataSpec;
 
 dtFormat = Config.datetimeFormats; % get the format of datetime to be accepted
 
+MandatoryFields = Config.MandatoryFields;
+
+OutputOrder = Config.OutputOrder;
+
 % Specify which fields are used for metadata validation
 roles = struct();
 
@@ -27,9 +31,6 @@ MetaRoles = roles;
 
 Detections = table();
 
-disp('Loaded roles:'); % DEBUGGING
-disp(MetaRoles); % DEBUGGING
-
 % Select files
 
 validExt = {'.CP1', '.CP3', '.FP1', '.FP3'};
@@ -40,17 +41,16 @@ isP3 = endsWith(files,'.CP3','IgnoreCase',true) | ...
 filtFiles = files(isP3);
 
 [file, path] = uigetfile('*.csv', 'Select Metadata File');
-requiredFields = fieldnames(spec); 
+%requiredFields = (MandatoryFields); 
 
 % Metadata validation
 tbl = loadMetadataFile(fullfile(path, file)); 
-checkMetadataColumns(tbl, requiredFields);
-tbl = validateMetadata(tbl,minDate,MetaRoles,dtFormat); 
+tbl = checkMetadataColumns(tbl, MandatoryFields,OutputOrder);
+tbl = validateMetadata(tbl,minDate,MetaRoles,dtFormat,MandatoryFields); 
 %[~, filename, ~] = fileparts(filtFiles);
 %tbl = matchFilenamesWithPOD(tbl, filename);
 updatedMetadata = matchMetadataWithPOD(files,tbl);
 MetaData = updatedMetadata;
-
 
 % === Build the list of files to process based on metadata matches ===
 nonEmpty = ~cellfun(@isempty, MetaData.MatchingFiles);

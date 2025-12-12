@@ -1,63 +1,40 @@
 {
     "MinDate": "1990-01-01 00:00:00",
+
+"OutputOrder": [
+    "RCV_PROJECT","RECEIVER","ACTIVATION_DATE_TIME","STATION_NAME","DEPLOY_DATE_TIME",
+    "DEPLOY_LAT","DEPLOY_LONG","VALID_DATA_UNTIL_DATE_TIME","RECOVER_DATE_TIME",
+    "ACOUSTIC_RELEASE_NUMBER","SPECIES_PREFERENCES","ADDITIONAL_CLASSIFIER",
+    "AMPLIFIER_SENSIVITY","HYDROPHONE_SENSIVITY","RECORDING_NAME","HYDROPHONE_CABLE_LENGTH",
+    "SAMPLE_RATE","MOORING_TYPE","BATTERY_END_DATE","DOWNLOAD_DATE_TIME","COMMENTS"
+  ],
+  "MandatoryFields": [
+    "RCV_PROJECT","RECEIVER","ACTIVATION_DATE_TIME","STATION_NAME","DEPLOY_DATE_TIME",
+    "DEPLOY_LAT","DEPLOY_LONG"
+  ],
+
   "MetadataSpec": {
     "RCV_PROJECT": { "Type": "String" },
     "RECEIVER": { "Type": "String" },
-    "ACTIVATION_DATE_TIME": { 
-        "Type": "Datetime", 
-        "TimeZone": "UTC",
-        "Role": "ActivationDate"
-    },
+    "ACTIVATION_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC", "Role": "ActivationDate" },
     "STATION_NAME": { "Type": "String" },
-    "DEPLOY_DATE_TIME": { 
-      "Type": "Datetime", 
-      "TimeZone": "UTC",
-      "Role": "DeployDate"
-    },
-    "DEPLOY_LAT": { 
-      "Type": "Float",
-      "Role": "Latitude"
-    },
-    "DEPLOY_LONG": { 
-      "Type": "Float",
-      "Role": "Longitude"
-    },
-    "VALID_DATA_UNTIL_DATE_TIME": { 
-        "Type": "Datetime", 
-        "TimeZone": "UTC",
-        "Role": "ValidUntilDate"
-    },
-    "RECOVER_DATE_TIME": { 
-      "Type": "Datetime", 
-      "TimeZone": "UTC",
-      "Role": "RecoverDate"
-    },
+    "DEPLOY_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC", "Role": "DeployDate" },
+    "DEPLOY_LAT": { "Type": "Float", "Role": "Latitude" },
+    "DEPLOY_LONG": { "Type": "Float", "Role": "Longitude" },
+    "VALID_DATA_UNTIL_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC", "Role": "ValidUntilDate" },
+    "RECOVER_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC", "Role": "RecoverDate" },
     "ACOUSTIC_RELEASE_NUMBER": { "Type": "String" },
-    "HYDROPHONE_CABLE_LENGTH": { "Type": "String" },
-    "MOORING_TYPE": {
-      "Type": "Factor",
-      "Options": ["Surface - buoy", "Surface - Wind turbine", "Bottom mooring"]
-    },
+    "SPECIES_PREFERENCES": { "Type": "Factor", "Options": ["No_Dolphins", "No_Sonar","No_dolphins&Sonar","NA"] },
+    "ADDITIONAL_CLASSIFIER": { "Type": "Factor", "Options": ["Default", "HEL1", "Genenc", "advancedKerno","NA"] },
+    "AMPLIFIER_SENSIVITY": { "Type": "String" },
+    "HYDROPHONE_SENSIVITY": { "Type": "String" },
     "RECORDING_NAME": { "Type": "String" },
-    "BATTERY_END_DATE": { 
-        "Type": "Datetime", 
-        "TimeZone": "UTC", 
-        "Role": "BatteryEndDate"
-    },
-    "DOWNLOAD_DATE_TIME": { 
-        "Type": "Datetime", 
-        "TimeZone": "UTC",
-        "Role": "DownloadDate"
-    },
-    "ADDITIONAL_CLASSIFIER": {
-      "Type": "Factor",
-      "Options": ["KERNO-F", "HEL1", "Genenc"]
-    },
-    "SPECIES_PREFERENCES": {
-      "Type": "Factor",
-      "Options": ["No Dolphins", "No Sonar"]
-    },
-    "POD_FILE": { "Type": "String" }
+    "HYDROPHONE_CABLE_LENGTH": { "Type": "String" },
+    "SAMPLE_RATE": { "Type": "String" },
+    "MOORING_TYPE": { "Type": "Factor", "Options": ["Surface - buoy", "Surface - Wind turbine", "Bottom mooring"] },
+    "BATTERY_END_DATE": { "Type": "Datetime", "TimeZone": "UTC", "Role": "BatteryEndDate" },
+    "DOWNLOAD_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC", "Role": "DownloadDate" },
+    "COMMENTS": { "Type": "String" }
   },
   "datetimeFormats": [
     "yyyy-MM-dd HH:mm:ss",
@@ -70,3 +47,4 @@
     "yyyy-MM-dd'T'HH:mm"
   ]
 }
+

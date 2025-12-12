@@ -25,18 +25,6 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
     % -----------------------------
     % Ensure datetime column types
     % -----------------------------
-    % Only convert if needed; preserve existing datetimes
-    if ~isdatetime(metadata.ACTIVATION_DATE_TIME)
-        metadata.ACTIVATION_DATE_TIME = datetime(metadata.ACTIVATION_DATE_TIME, ...
-            'InputFormat','yyyy-MM-dd HH:mm:ss');
-    end
-    if ~isdatetime(metadata.VALID_DATA_UNTIL_DATE_TIME)
-        metadata.VALID_DATA_UNTIL_DATE_TIME = datetime(metadata.VALID_DATA_UNTIL_DATE_TIME, ...
-            'InputFormat','yyyy-MM-dd HH:mm:ss');
-    end
-    % Work with timezone-less comparisons
-    metadata.ACTIVATION_DATE_TIME.TimeZone = '';
-    metadata.VALID_DATA_UNTIL_DATE_TIME.TimeZone = '';
 
     % -----------------------------
     % Preallocate output columns
@@ -52,6 +40,28 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
     % Match loop (per metadata row)
     % -----------------------------
     for i = 1:n
+
+            % --- Build start date for a metadata row i ---
+        act = metadata.ACTIVATION_DATE_TIME(i);
+        dep = metadata.DEPLOY_DATE_TIME(i);
+    
+        % Choose start: prefer activation if available, else deploy
+        if ~isnat(act)
+            startDt = act;
+        elseif ~isnat(dep)
+            startDt = dep;
+        else
+            % No start info -> cannot match
+            startDt = NaT;
+        end
+        
+        % Normalize both file date and start date to day-level and strip timezone
+        startDay = dateshift(startDt, 'start', 'day');
+        startDay.TimeZone = '';
+
+        % 6-month window end
+        endDay = startDay + calmonths(6);
+
         % Extract digits from RECEIVER (e.g., "FPOD_123" -> "123")
         rawReceiver   = string(metadata.RECEIVER(i));
         receiverDigits = regexp(rawReceiver, '\d+', 'match');
@@ -63,9 +73,6 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
             continue;
         end
         receiverID = receiverDigits{1};
-
-        activationDate = dateshift(metadata.ACTIVATION_DATE_TIME(i), 'start', 'day');
-        validUntilDate = dateshift(metadata.VALID_DATA_UNTIL_DATE_TIME(i), 'start', 'day');
 
         matchedFilesForRow = {};
         typeDetected = "";
@@ -84,18 +91,23 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
             % Check POD ID match (support CPOD/FPOD naming)
             % Examples: "...POD123..." or "...FPOD_123..."
             podMatch = contains(name, "POD" + receiverID) || contains(name, "FPOD_" + receiverID);
-
-            % Check date range (inclusive, day-level)
-            inRange = (fileDate >= activationDate) && (fileDate <= validUntilDate);
+            
+            % Parse file date (already date-only)
+            % Make sure we also normalize to day-level and timezone-less
+            fileDay = dateshift(fileDate, 'start', 'day');
+            fileDay.TimeZone = '';
+            
+            % Half-open interval [start, end)
+            inRange = (fileDay >= startDay) && (fileDay < endDay);
 
             if podMatch && inRange
                 matchedFilesForRow{end+1} = fname;
 
                 % Determine PodType from extension
                 if strcmpi(ext, '.CP3')
-                    typeDetected = "CPOD";
+                    typeDetected = "C-POD";
                 elseif strcmpi(ext, '.FP3')
-                    typeDetected = "FPOD";
+                    typeDetected = "F-POD";
                 end
             end
         end
@@ -104,12 +116,7 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
         matchCnt(i) = numel(matchedFilesForRow);
         podTypes(i) = typeDetected;
 
-        % Convenience: fill FileName with first match (or missing)
-        if ~isempty(matchedFilesForRow)
-            fileNames(i) = string(matchedFilesForRow{1});
-        else
-            fileNames(i) = string(missing);
-        end
+ 
     end
 
     % -----------------------------------------
@@ -120,7 +127,6 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
     updatedMetadata.MatchingFiles = matches;
     updatedMetadata.MatchCount    = matchCnt;
     updatedMetadata.PodType       = podTypes;
-    updatedMetadata.FileName      = fileNames;
     updatedMetadata.RowType       = rowType;
 
     % -----------------------------------------
@@ -182,7 +188,6 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
         % Set the "output" columns for file-only rows
         unmatchedTbl.MatchingFiles = repmat({{}}, nU, 1);
         unmatchedTbl.MatchCount    = zeros(nU, 1);
-        unmatchedTbl.FileName      = unmatchedOrig;
         unmatchedTbl.RowType       = repmat(string("file-only"), nU, 1);
 
         % Derive PodType from extension
@@ -190,9 +195,9 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
         for k = 1:nU
             [~, ~, ext] = fileparts(unmatchedOrig(k));
             if strcmpi(ext, '.CP3')
-                podTypeOut(k) = "CPOD";
+                podTypeOut(k) = "C-POD";
             elseif strcmpi(ext, '.FP3')
-                podTypeOut(k) = "FPOD";
+                podTypeOut(k) = "F-POD";
             else
                 podTypeOut(k) = string(missing);
             end
