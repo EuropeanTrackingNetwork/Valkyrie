@@ -35,13 +35,15 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
     podTypes  = strings(n, 1);
     fileNames = strings(n, 1);      % optional: first matched filename for convenience
     rowType   = repmat(string("metadata"), n, 1);
+    deploymentId = strings(n, 1);   % identifier per metadata row
+
 
     % -----------------------------
     % Match loop (per metadata row)
     % -----------------------------
     for i = 1:n
 
-            % --- Build start date for a metadata row i ---
+        % --- Build start date for a metadata row i ---
         act = metadata.ACTIVATION_DATE_TIME(i);
         dep = metadata.DEPLOY_DATE_TIME(i);
     
@@ -61,6 +63,33 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
 
         % 6-month window end
         endDay = startDay + calmonths(6);
+
+
+% --- Build the deployment identifier (INLINE, no helpers) ---
+        station     = string(metadata.STATION_NAME(i));   % use exactly as in metadata
+        receiverStr = string(metadata.RECEIVER(i));
+        % Extract first run of digits from RECEIVER (serial number)
+        tok = regexp(receiverStr, '(\d+)', 'match', 'once');
+        if isempty(tok)
+            receiverDigits = "UNKNOWN";
+        else
+            receiverDigits = string(tok);
+        end
+
+        if isdatetime(startDt) && ~isnat(startDt)
+            if isempty(startDt.TimeZone)
+                startDt.TimeZone = 'UTC';
+            else
+                startDt.TimeZone = 'UTC';  % normalize
+            end
+            startDt.Format = "yyyyMMdd'T'HHmmss'Z'";
+            ts = string(startDt);
+        else
+            ts = "UNKNOWNDATE";
+        end
+
+        deploymentId(i) = station + "_" + ts + "_" + receiverDigits;
+
 
         % Extract digits from RECEIVER (e.g., "FPOD_123" -> "123")
         rawReceiver   = string(metadata.RECEIVER(i));
@@ -128,6 +157,7 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
     updatedMetadata.MatchCount    = matchCnt;
     updatedMetadata.PodType       = podTypes;
     updatedMetadata.RowType       = rowType;
+    updatedMetadata.DeploymentID  = deploymentId;
 
     % -----------------------------------------
     % Determine unmatched files (CP3/FP3 only)
