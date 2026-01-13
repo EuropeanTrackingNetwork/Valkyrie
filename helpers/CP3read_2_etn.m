@@ -37,7 +37,9 @@ for i = 1:height(ETN)
     train_data = ETN.train{i};
     if ~isempty(train_data)
         quality_match = [train_data.qualityclass] == ETN.quality(i);
-        dummy_minute = train_data(quality_match);
+        species_match = [train_data.spclass] == 0; % only calculate for trains from NBHF sources!
+        keep_mask = quality_match & species_match;
+        dummy_minute = train_data(keep_mask);
         if ~isempty(dummy_minute)
             milliseconds = arrayfun(@(x) x.time(end) - x.time(1), dummy_minute);
             ETN.milliseconds(i) = sum(milliseconds);
@@ -52,7 +54,7 @@ ETN.angle = round([ETN.angle]);
 ETN.quality = categorical(ETN.quality, [1 2 3], {'Lo', 'Mod', 'Hi'});
 
 % change units from 0.2 microsecond steps to milliseconds
-ETN.milliseconds = ETN.milliseconds*0.0002 ; %IS THIS RIGHT
+ETN.milliseconds = round(ETN.milliseconds*0.0002) ; %no decimal ms
 
 % lost minutes
 ETN.lost_minutes = double(ETN.nall > 4096) ;
