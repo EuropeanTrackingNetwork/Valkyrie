@@ -21,6 +21,7 @@ ETN = struct2table(ETN);
 
 % Convert the serial dates to datetime
 ETN.time = datetime([ETN.time], 'ConvertFrom', 'datenum', 'Format', 'yyyy-MM-dd HH:mm:ss');
+ETN.time = dateshift(ETN.time, 'start','second','nearest');  % rounds to nearest second, to correct rounding errors from datenum conversion
 
 % Separate out by quality
 ETN = stack(ETN, {'clickHi', 'clickMed', 'clickLow'}, 'NewDataVariableName','number_clicks_filtered','IndexVariableName','quality') ;
