@@ -52,7 +52,6 @@ function [minutes, trains]=CP3read_DTO(path,filename, n)
 % J. Tougaard, Aarhus University, May 2017
 
 
-
 % CP3-file structure (from Nick):
 % First 760 bytes: Header
 % Byte 257-260: Starttime in minutes from 1899-12-30 00:00, big-endian
@@ -61,10 +60,10 @@ function [minutes, trains]=CP3read_DTO(path,filename, n)
 % byte minute sequence is also stored.
 
 % Minute-sequence bytes:
-% 4     Temperature     t=b/5 (oC)
-% 5     Angle sensor    a=acos(1-b/128)
-% 21    always 20
-% 40    always 254 (indicates minute sequence)
+% Byte 4     Temperature     t=b/5 (oC)
+% Byte 5     Angle sensor    a=acos(1-b/128)
+% Byte 21    always 20
+% Byte 40    always 254 (indicates minute sequence end)
 
 %Click- sequences 
 % 1-3   time stamp: steps of 0.2 micro-s from start of current minute, big-endian,
@@ -114,7 +113,7 @@ function [minutes, trains]=CP3read_DTO(path,filename, n)
 % Troubleshooting: 
 % [files, path] = uigetfile('*.*', 'MultiSelect','on') ; % select files to
 % load and test the script on
-% filename = files{2} ; % get filename of selected file
+% filename = files{1} ; % get filename of selected file
    
 if strcmp('.CP3',filename(end-3:end)) || strcmp('.cp3',filename(end-3:end))
     filename=filename(1:end-4);     %remove extension
@@ -149,15 +148,17 @@ if ~noCP1
 end
 
 %% Find minute-recordings
+% CP1 data has a column for each minute data and in row 10 is the indicator
+% for if this is minute data (254)
 if ~noCP1
-    minutebreaksCP1=CP1_data(10,:)==254;    %lines with minutedata
+    minutebreaksCP1=CP1_data(10,:)==254;    %lines with minutedata - not all columns have a minutebreak and the data is the columns in betweeen the minute breaks
     dummy=(1:length(CP1_data))';            %linenumber in raw data
-    minuteindexCP1=dummy(minutebreaksCP1);  %index to locatio of minutebreaks in data
+    minuteindexCP1=dummy(minutebreaksCP1);  %index to location of minutebreaks in data
 end
 
 minutebreaks=CP3_data(40,:)==254;       %lines with minutedata
 dummy=(1:length(CP3_data))';            %linenumber in raw data
-minuteindex=dummy(minutebreaks);        %index to locatio of minutebreaks in data
+minuteindex=dummy(minutebreaks);        %index to location of minutebreaks in data
 %% Read clicks minute by minute
 qualitylist={'Doubtful','Low','Medium','High'};
 specieslist={'NBHF','Dolphin','Unclass.','Sonar','HEL1'};
@@ -177,7 +178,7 @@ for currentminute=1:sum(minutebreaks)-1
         minutecounter = currentminute - 1; % for the following iterations use preceding currentminute to shift all minute data up 1 row
     end
 
-    minutes(currentminute).temperature=CP3_data(4,minuteindex(minutecounter))/5; % temp is row 4
+    minutes(currentminute).temperature=CP3_data(4,minuteindex(minutecounter))/25; % temp is row 4 - OBS: For some reason need to divide by 25 and NOT 5 as initially thought. Need to test on more data 
     minutes(currentminute).angle=acosd(1-CP3_data(5,minuteindex(minutecounter))/128); % angle is row 5
 
     % Get minute ON based on the evaluation protocol from Nick Treganza
@@ -228,28 +229,35 @@ for currentminute=1:sum(minutebreaks)-1
         for n=1:length(trainIDlist) % for each train
             minutes(currentminute).train(n).ID=trainIDlist(n); %the train we are looking at, put into the minutes form
             trains(trainno).ID=trainIDlist(n); % same but for train form
-            dummy=clicksinminute(37,trainID==trainIDlist(n)); %row 37 for all the clicks in the train but idk what row 37 is?? cpmax? lots of things in the row 37 explainer
+            dummy=clicksinminute(37,trainID==trainIDlist(n)); %row 37 holds a lot of into (see at top of script). From this variable (dummy) many of the categorical variables can be extracted using some bitshifting
+            
             % Species class
-            minutes(currentminute).train(n).spclass=bitshift(bitand(dummy(1),240),-4); % ??????????? everything is decoding based on row 37 but i do not understand
-            trains(trainno).spclass=bitshift(bitand(dummy(1),240),-4); % ???????????
+            minutes(currentminute).train(n).spclass=bitshift(bitand(dummy(1),240),-4); % bitshift to get species class for the minute
+            trains(trainno).spclass=bitshift(bitand(dummy(1),240),-4); % bitshift to get the species class for the train
             minutes(currentminute).train(n).species=specieslist(trains(trainno).spclass+1); % match up spclass code with list of species 
             trains(trainno).species=specieslist(trains(trainno).spclass+1); % match up spclass code with list of species 
+           
             % quality class
-            minutes(currentminute).train(n).qualityclass=bitand(dummy(1),3); % ???????????
-            trains(trainno).qualityclass=bitand(dummy(1),3); % ???????????
+            minutes(currentminute).train(n).qualityclass=bitand(dummy(1),3); % Use some bitand function to extract the quality class for minute
+            trains(trainno).qualityclass=bitand(dummy(1),3); % Get quality class for train
             minutes(currentminute).train(n).quality=qualitylist(trains(trainno).qualityclass+1); % match up qualityclass code with list of qualities 
             trains(trainno).quality=qualitylist(trains(trainno).qualityclass+1);% match up qualityclass code with list of qualities 
+           
             % Rate good? (boolean)
-            minutes(currentminute).train(n).rategood=bitshift(bitand(dummy(1),4),-2);
-            trains(trainno).rategood=bitshift(bitand(dummy(1),4),-2);
+            minutes(currentminute).train(n).rategood=bitshift(bitand(dummy(1),4),-2); % Use bitshifting to get the rate good category for minute
+            trains(trainno).rategood=bitshift(bitand(dummy(1),4),-2); % Use bitshifting to get the rate good category for train
+            
             % species good (boolean)
-            minutes(currentminute).train(n).speciesgood=bitshift(bitand(dummy(1),8),-3);
-            trains(trainno).speciesgood=bitshift(bitand(dummy(1),8),-8);
+            minutes(currentminute).train(n).speciesgood=bitshift(bitand(dummy(1),8),-3); % Use bitshifting to get the species good category for minute
+            trains(trainno).speciesgood=bitshift(bitand(dummy(1),8),-8); % Use bitshifting to get the species good category for train
+
             % Number of clicks in train
-            minutes(currentminute).train(n).no_of_clicks=sum(trainID==trainIDlist(n));
+            minutes(currentminute).train(n).no_of_clicks=sum(trainID==trainIDlist(n)); 
             trains(trainno).no_of_clicks=sum(trainID==trainIDlist(n));
+
             % Date and time of current minute
-            trains(trainno).minute=starttimeCP3+currentminute/1440;
+            trains(trainno).minute=starttimeCP3+minutecounter/1440;
+
             % time
             minutes(currentminute).train(n).time=5*(((clicksinminute(1,trainID==trainIDlist(n))*256 ...
                 +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n)));
@@ -257,18 +265,23 @@ for currentminute=1:sum(minutebreaks)-1
                 +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n)));
             minutes(currentminute).train(n).ici=diff([minutes(currentminute).train(n).time]);
             trains(trainno).ici=diff([minutes(currentminute).train(n).time]);
+
             % cycles
             minutes(currentminute).train(n).cycles=clicksinminute(4,trainID==trainIDlist(n));
             trains(trainno).cycles=clicksinminute(4,trainID==trainIDlist(n));
+
             % amplitude (nix)
             minutes(currentminute).train(n).nix=clicksinminute(8,trainID==trainIDlist(n));
             trains(trainno).nix=clicksinminute(8,trainID==trainIDlist(n));
+
             % frequency
             minutes(currentminute).train(n).frq=clicksinminute(6,trainID==trainIDlist(n));
             trains(trainno).frq=clicksinminute(6,trainID==trainIDlist(n));
+
             % bandwidth
             minutes(currentminute).train(n).BW=clicksinminute(5,trainID==trainIDlist(n));
             trains(trainno).BW=clicksinminute(5,trainID==trainIDlist(n));
+
             %f-end
             minutes(currentminute).train(n).fend=clicksinminute(7,trainID==trainIDlist(n));
             trains(trainno).fend=clicksinminute(7,trainID==trainIDlist(n));
@@ -296,6 +309,7 @@ for currentminute=1:sum(minutebreaks)-1
         minutes(currentminute).clickAll=sum([minutes(currentminute).train(...
             [minutes(currentminute).train.spclass]'==0&...
             [minutes(currentminute).train.qualityclass]'==0).no_of_clicks]);
+
     else    % No clicks in minute, set all variables to zero
         minutes(currentminute).no_of_trains=0;
         minutes(currentminute).no_of_clicks=0;
