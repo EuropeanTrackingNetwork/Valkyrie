@@ -21,8 +21,8 @@ receivers = table('Size', [numRows,4], ...
 
 receivers.RCV_MANUFACTURER(:) = "CHELONIA" ;
 receivers.RECEIVER_ID_SERIAL_NUMBER = tblMatch.RECEIVER ;
-receivers.RECEIVER_MODEL = tblMatch.PodType;
-receivers.RCV_STATUS(:) = "ACTIVE" ;
+receivers.RECEIVER_MODEL = tblMatch.PodType; % Should be either C-POD or F-POD
+receivers.RCV_STATUS(:) = "Active" ;
 
 
 % Only one receiver entry per POD, even if the POD is used in multiple

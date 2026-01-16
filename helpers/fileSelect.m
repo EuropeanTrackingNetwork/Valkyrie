@@ -1,6 +1,8 @@
 %% Choice of file or folder selection
 % Function to prompt user to either choose a folder or seperate files to
 % upload. 
+%
+% validExt example: [".cp1" ".cp3" ".fp1" ".fp3"]
 
 function [selectedFiles, selectedPath] = fileSelect(validExt)
     % Prompt user for folder or file selection
@@ -11,6 +13,7 @@ function [selectedFiles, selectedPath] = fileSelect(validExt)
     selectedFiles = {};
     selectedPath = {};
 
+    % allow user to cancel selection
     if strcmp(choice, 'Cancel') || isempty(choice)
         return;
     end
@@ -20,19 +23,22 @@ function [selectedFiles, selectedPath] = fileSelect(validExt)
             folderPath = uigetdir('', 'Select folder with CPOD/FPOD files');
             if folderPath == 0, return; end
 
+            selectedPath = folderPath;
+
+            % Lists all content including subfolders
             allFiles = dir(fullfile(folderPath, '**', '*.*'));
-            allFiles = allFiles(~[allFiles.isdir]); % Remove folders
+            allFiles = allFiles(~[allFiles.isdir]); % Remove folders and keep only files
 
             % Filter by extension
-            isValid = arrayfun(@(f) ...
-                any(strcmpi(validExt, lower(getExt(f.name)))), ...
-                allFiles);
+            [~,~,exts] = ((arrayfun(@(f) fileparts(f.name), allFiles, 'UniformOutput', false))); % get extention of all files
+            isValid = ismember(exts, validExt); %check if extentsion match the valid extentsion
 
             selectedStructs = allFiles(isValid); % all the files that fit the criteria
 
-            selectedFiles = {selectedStructs.name}; % file names with extension
-            selectedPath = selectedStructs(1).folder; % path name to folder 
-
+            % Return full file paths (important if subfolders exist)
+            % The specific filenames are then extracted later
+            selectedFiles = fullfile({selectedStructs.folder}, {selectedStructs.name});
+           
         case 'Files'
             [files, path] = uigetfile({'*.CP1;*.CP3;*.FP1;*.FP3', ...
                                        'C/FPOD Files (*.CP1, *.CP3, *.FP1, *.FP3)'}, ...
@@ -44,12 +50,7 @@ function [selectedFiles, selectedPath] = fileSelect(validExt)
                 files = {files};
             end
 
-            selectedFiles = files;
+            selectedFiles = fullfile(files,path);
             selectedPath = path; % since all files are within same folder save only one example
     end
-end
-
-% Local helper to get extension of filenames
-function ext = getExt(filename)
-    [~, ~, ext] = fileparts(filename);
 end

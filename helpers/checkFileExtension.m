@@ -1,4 +1,4 @@
-function [isValid,fileGroups,errorMsg] = checkFileExtension(files,check)
+function [isValid,fileGroups,errorMsg,missing, pairedFiles] = checkFileExtension(files,check)
 %=====================================
 % Function to check the selected files
 %=====================================
@@ -46,17 +46,32 @@ function [isValid,fileGroups,errorMsg] = checkFileExtension(files,check)
     % Check that not only C/FP1 files are added - if an C/FP1 is added the
     % corresponding file also has to be there 
 
-    % Extract lists once (efficient use of memory)
+    % Extract lists 
     cp1 = fileMap('.CP1');
     cp3 = fileMap('.CP3');
     fp1 = fileMap('.FP1');
     fp3 = fileMap('.FP3');
 
-    % Always enforce: CP1 → CP3 and FP1 → FP3
+
+    % --- PAIRED BASE NAMES (recordings that have both files in a pair) ---
+    pairedCP = intersect(cp1, cp3, 'stable'); % base names that have both CP1 and CP3
+    pairedFP = intersect(fp1, fp3, 'stable'); % base names that have both FP1 and FP3
+    
+    pairedCP = string(pairedCP); pairedCP(pairedCP=="") = [];
+    pairedFP = string(pairedFP); pairedFP(pairedFP=="") = [];
+
+    pairedFiles = [ strcat(pairedCP, ".CP1"); strcat(pairedCP, ".CP3"); ...
+                    strcat(pairedFP, ".FP1"); strcat(pairedFP, ".FP3") ];
+    pairedFiles = cellstr(pairedFiles);
+
+
+    % Always enforce - we at minimum need the FP3 and CP3 files: 
+    % % CP1 → CP3 and FP1 → FP3
     missing = [setdiff(cp1, cp3); setdiff(fp1, fp3)];
 
     % Find missing pairs - added as an if statement to be able to 'toggle'
-    % it on/off
+    % it on/off. This step is to also check if the CP1 and FP1 files are
+    % there.
     if check == 1 % make sure the variable check is specified in app
         missing = [missing; setdiff(cp3, cp1);setdiff(fp3, fp1)];
     end

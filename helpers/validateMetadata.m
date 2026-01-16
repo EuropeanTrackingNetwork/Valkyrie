@@ -96,6 +96,7 @@ function [tbl, errorMsg] = validateMetadata(tbl, minDate, roles, dtFormats, mand
         svals = string(colData);
         n = numel(svals);
         parsed = NaT(n,1,'TimeZone','UTC');
+        parsed.Format = "yyyy-MM-dd'T'HH:mm:ss'Z'";
 
         for i = 1:n
             s = strtrim(svals(i));
@@ -139,7 +140,7 @@ function [tbl, errorMsg] = validateMetadata(tbl, minDate, roles, dtFormats, mand
                 end
             end
     
-            % >>> NEW: coerce to numeric (double) after validation <<<
+            % Change to numeric (double) after validation
             latNum = str2double(lats);
             lonNum = str2double(lons);
             % Keep invalids as NaN (they will already have produced errors)

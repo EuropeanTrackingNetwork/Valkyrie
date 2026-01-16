@@ -112,6 +112,7 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
 
             % Extract date (support underscores/dashes/spaces)
             % Looks for YYYY MM DD in a flexible way: 2024_09_05 or 2024-09-05 or 2024 09 05
+            % OBS: this will cause a mistake for names like this: 'CPOD1686 2011 11 09 POD1686 file01.CP3'
             tokens = regexp(name, '(\d{4})[_\s-]?(\d{2})[_\s-]?(\d{2})', 'tokens');
             if isempty(tokens), continue; end
             dateStr = strjoin(tokens{1}, '');
