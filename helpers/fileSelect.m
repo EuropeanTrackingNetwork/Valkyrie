@@ -50,7 +50,7 @@ function [selectedFiles, selectedPath] = fileSelect(validExt)
                 files = {files};
             end
 
-            selectedFiles = fullfile(files,path);
+            selectedFiles = fullfile(path,files);
             selectedPath = path; % since all files are within same folder save only one example
     end
 end
