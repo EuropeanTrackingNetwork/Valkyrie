@@ -23,10 +23,6 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
     fileList = fileList(isP3);
 
     % -----------------------------
-    % Ensure datetime column types
-    % -----------------------------
-
-    % -----------------------------
     % Preallocate output columns
     % -----------------------------
     n = height(metadata);
@@ -34,7 +30,7 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
     matchCnt  = zeros(n, 1);
     podTypes  = strings(n, 1);
     fileNames = strings(n, 1);      % optional: first matched filename for convenience
-    rowType   = repmat(string("metadata"), n, 1);
+    rowType   = repmat("metadata", n, 1);
     deploymentId = strings(n, 1);   % identifier per metadata row
 
 
@@ -44,25 +40,34 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
     for i = 1:n
 
         % --- Build start date for a metadata row i ---
+        % OBS: for some files it has to be activation date
         act = metadata.ACTIVATION_DATE_TIME(i);
         dep = metadata.DEPLOY_DATE_TIME(i);
-    
-        % Choose start: prefer activation if available, else deploy
+        val = metadata.VALID_DATA_UNTIL_DATE_TIME(i);
+
+        % Start time for  both activation and deployment datetime
         if ~isnat(act)
-            startDt = act;
-        elseif ~isnat(dep)
-            startDt = dep;
-        else
-            % No start info -> cannot match
-            startDt = NaT;
+            startDtact = act;
+        end
+        if ~isnat(dep)
+            startDtdep = dep;
         end
         
         % Normalize both file date and start date to day-level and strip timezone
-        startDay = dateshift(startDt, 'start', 'day');
-        startDay.TimeZone = '';
+        % activation datetime:
+        startDayact = dateshift(startDtact, 'start', 'day');
+        startDayact.TimeZone = '';
+        startDayact.Format = 'yyyyMMdd';
 
-        % 6-month window end
-        endDay = startDay + calmonths(6);
+        % Deployment datetime
+        startDaydep = dateshift(startDtdep, 'start', 'day');
+        startDaydep.TimeZone = '';
+        startDaydep.Format = 'yyyyMMdd';
+
+        % End day defined by the valid data until (also mandatory field)
+        endDay = dateshift(val, 'start','day');
+        endDay.Format = 'yyyyMMdd';
+        endDay.TimeZone = '';
 
 
 % --- Build the deployment identifier (INLINE, no helpers) ---
@@ -76,20 +81,19 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
             receiverDigits = string(tok);
         end
 
-        if isdatetime(startDt) && ~isnat(startDt)
-            if isempty(startDt.TimeZone)
-                startDt.TimeZone = 'UTC';
-            else
-                startDt.TimeZone = 'UTC';  % normalize
+        if isdatetime(startDtdep) && ~isnat(startDtdep)
+            startDtdep.TimeZone = 'UTC';
+            startDtdep.Format = "yyyyMMdd'T'HHmmss'Z'";
+            tsDep = string(startDtdep);
+            if ~isempty(startDtdep) && isdatetime(startDtact) && ~isnat(startDtact)
+                startDtact.TimeZone = 'UTC';
+                startDtact.Format = "yyyyMMdd'T'HHmmss'Z'";
+                tsAct = string(startDtact);
             end
-            startDt.Format = "yyyyMMdd'T'HHmmss'Z'";
-            ts = string(startDt);
         else
-            ts = "UNKNOWNDATE";
+            tsDep = "UNKNOWNDATE";
+            tsAct = "UNKNOWNDATE";
         end
-
-        deploymentId(i) = station + "_" + ts + "_" + receiverDigits;
-
 
         % Extract digits from RECEIVER (e.g., "FPOD_123" -> "123")
         rawReceiver   = string(metadata.RECEIVER(i));
@@ -128,7 +132,18 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
             fileDay.TimeZone = '';
             
             % Half-open interval [start, end)
-            inRange = (fileDay >= startDay) && (fileDay < endDay);
+            % Base the range on whether filename has the deployment or the
+            % activation date
+            if fileDay >= startDayact && fileDay < startDaydep && fileDay < endDay
+                deploymentId(i) = station + "_" + tsAct + "_" + receiverDigits; 
+                inRange = true;
+            elseif fileDay >= startDaydep && fileDay > startDayact && fileDay < endDay
+                deploymentId(i) = station + "_" + tsDep + "_" + receiverDigits; 
+                inRange = true;
+            else
+                deploymentId(i) = station + "_" + tsAct + "_" + receiverDigits;
+                inRange = false;
+            end
 
             if podMatch && inRange
                 matchedFilesForRow{end+1} = fname;
@@ -219,7 +234,7 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
         % Set the "output" columns for file-only rows
         unmatchedTbl.MatchingFiles = repmat({{}}, nU, 1);
         unmatchedTbl.MatchCount    = zeros(nU, 1);
-        unmatchedTbl.RowType       = repmat(string("file-only"), nU, 1);
+        unmatchedTbl.RowType       = repmat("file-only", nU, 1);
 
         % Derive PodType from extension
         podTypeOut = strings(nU, 1);

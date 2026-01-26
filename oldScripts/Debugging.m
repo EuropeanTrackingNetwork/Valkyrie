@@ -53,68 +53,144 @@ validExt = {'.CP1', '.CP3', '.FP1', '.FP3'};
 % filePaths to each specific file.
 [filePaths, path] = fileSelect(validExt);
 
-% get info on each file - used to filter if there are file duplicates:
-info = cellfun(@dir, filePaths);   % struct array, one per file
+
+% Normalize to string column vector
+filePaths = string(filePaths(:));
+
+% === 2) Get info & deduplicate (keep uniques) ===
+% Safer than cellfun(@dir,...) since dir on full file path returns scalar struct
+info = arrayfun(@(fp) dir(fp), filePaths);
 name = string({info.name})';
 bytes = [info.bytes]';
 
-sig = lower(name) + "|" + string(bytes);        % signature
+% Build a robust signature for uniqueness (case-insensitive name + size)
+sig = lower(name) + "|" + string(bytes);
 [~, ia] = unique(sig, 'stable');
 
-dups = setdiff(1:numel(filePaths), ia);
+% Keep track of duplicates if you need them
+dupIdx = setdiff(1:numel(filePaths), ia);
+duplicateFiles = filePaths(dupIdx);
 
-duplicateFiles = filePaths(dups);  % store duplicates first
-UniquefilePaths  = filePaths(ia);    % keep uniques
+% Keep only uniques
+uniqPaths  = filePaths(ia);
+uniqNames  = name(ia);
+uniqBytes  = bytes(ia);
 
+% === 3) Build a mapping table we will reuse later ===
+NameExt = uniqNames;                   % already "name.ext" from dir
+FullPath = uniqPaths;
+Bytes = uniqBytes;
+filesTbl = table(FullPath, NameExt, Bytes);
 
 % This step is to extract the names of each of the files and
 % their extention and then save them together in app.files
-[~,names,ext] = fileparts(UniquefilePaths);
-files = string(names)+ext;
-files = cellstr(files);
-[isValid, fileGroups, msg, unmatchedFiles,pairedFiles] = checkFileExtension(files, check);
+[isValid, fileGroups, msg, unmatchedFiles,pairedFiles] = checkFileExtension(cellstr(filesTbl.NameExt), check);
 
 isP3 = endsWith(pairedFiles,'.CP3','IgnoreCase',true) | ...
     endsWith(pairedFiles,'.FP3','IgnoreCase',true);
 filtFiles = pairedFiles(isP3);
+filtFilesStr = string(filtFiles(:));
 
 [file, path] = uigetfile('*.csv', 'Select Metadata File');
 %requiredFields = (MandatoryFields); 
 
 % Metadata validation
 tbl = loadMetadataFile(fullfile(path, file)); 
-tbl = checkMetadataColumns(tbl, MandatoryFields,OutputOrder, DatetimeCols);
+[tbl, all_identical, projects] = checkMetadataColumns(tbl, MandatoryFields,OutputOrder, DatetimeCols);
+
+if ~all_identical
+    chosen = chooseReceiverProjectPopup(projects, tbl);
+
+    if chosen == ""
+        % User cancelled: keep Next disabled and ask them to re-upload/fix
+        uialert(UIFigure, ...
+            "You cancelled Receiver Project selection. Please upload metadata again or correct the file.", ...
+            "Selection cancelled");
+        return
+    end
+    % Filter metadata to chosen project
+    tbl = filterByReceiverProject(tbl, chosen);
+    MetadataUITable.Data = tbl;
+end
+
 tbl = validateMetadata(tbl,minDate,MetaRoles,dtFormat,MandatoryFields); 
-%[~, filename, ~] = fileparts(filtFiles);
-%tbl = matchFilenamesWithPOD(tbl, filename);
-updatedMetadata = matchMetadataWithPOD(files,tbl);
+
+updatedMetadata = matchMetadataWithPOD(pairedFiles,tbl);
 MetaData = updatedMetadata;
+
+
+disp(MetaData.MatchingFiles);
 
 % === Build the list of files to process based on metadata matches ===
 nonEmpty = ~cellfun(@isempty, MetaData.MatchingFiles);
 if any(nonEmpty)
-    % Flatten all matched files into a single list
-    matchedFilesAll = string(vertcat(MetaData.MatchingFiles{nonEmpty}));
+    matchedCells = MetaData.MatchingFiles(nonEmpty);
+    
+    flat = {};  % will become a column cell array
+    for i = 1:numel(matchedCells)
+        ci = matchedCells{i};
+    
+        if isstring(ci)
+            % Convert string array to cellstr (each element becomes a char in a cell)
+            ci = cellstr(ci(:));
+        elseif ischar(ci)
+            % Single char row => wrap into cell
+            ci = {ci};
+        elseif iscell(ci)
+            % Nested cell: ensure column shape
+            ci = ci(:);
+        else
+            % Unknown type — skip with a warning
+            warning('MatchingFiles{%d} has unsupported type: %s', i, class(ci));
+            continue;
+        end
+    
+        % Append
+        flat = [flat; ci]; % ensure vertical concatenation
+    end
+    
+    % Remove empties and convert to string array
+    flat = flat(~cellfun(@isempty, flat));
+    matchedFilesAll = string(flat);
+
+     % Optional: trim whitespace and deduplicate
+    matchedFilesAll = unique(strtrim(matchedFilesAll));
 else
     matchedFilesAll = string([]); % no matches at all
-end
+end          
 
-% Work off the filtered CP3/FP3 files to stay consistent with UI selection
-filtFilesStr = string(filtFiles(:));
+disp(matchedFilesAll);
 
 % Intersect to ensure we only process files the user selected AND that have metadata
-processList = intersect(filtFilesStr, matchedFilesAll, 'stable');  % 'stable' preserves UI order
+processNames = intersect(filtFilesStr, matchedFilesAll, 'stable');  % preserves UI order
 
 
+% Find rows whose NameExt is in processNames, preserving the 'stable' order of processNames
+[tf, loc] = ismember(processNames, filesTbl.NameExt);
+processList = filesTbl.FullPath(loc(tf));   % <- this is what you want: full paths in UI order
+
+% Build a table with path + filename columns for downstream code
+[processFolders, processNamesNoExt, processExt] = arrayfun(@fileparts, cellstr(processList), ...
+    'UniformOutput', false);
+processFileNames = string(processNamesNoExt) + string(processExt);
+processPaths = string(processFolders);
+
+processTbl = table(processPaths, processFileNames, processList, ...
+    'VariableNames', {'Path','FileName','FullPath'});
 
 n = '';
 if check == 1
     n = '-n';
 end
 
+nFiles = height(processTbl);
+ProcessingStatus = repmat({'NOT ATTEMPTED'}, nFiles, 1) ;
+
 % Process detection files
-for i = 1:numel(filtFiles)
-    [~, filename, ext] = fileparts(filtFiles{i});
+for i = 1:height(processTbl)
+
+    filename = processTbl.FileName{i};
+    path = processTbl.Path{i};
 
     try % Wrapped in a try-catch to ensure app will not crash if the import and formatting doesn't work for one of the files
         switch ext
@@ -132,6 +208,12 @@ for i = 1:numel(filtFiles)
         continue; % SKip to next file
     end
 
+    %Set the timezone for ETN data (Detection date time column)
+    dep = metadata.DEPLOY_DATE_TIME(i);
+    val = metadata.VALID_DATA_UNTIL_DATE_TIME(i);
+    ETN.DETECTION_DATE_TIME.TimeZone = 'UTC';
+    inRange = ETN.DETECTION_DATE_TIME >= dep & ETN.DETECTION_DATE_TIME <= val;
+    ETN = ETN(inRange, :);
 
     if isempty(Detections)
         Detections = ETN;

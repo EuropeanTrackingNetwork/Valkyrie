@@ -15,7 +15,7 @@
 %   tblOut : table ready for export (ordered, with optional columns added if needed)
 
 
-function tblOut = checkMetadataColumns(tbl, requiredCols, OutputOrder, DateTimeCols)
+function [tblOut, all_identical, uniqueProjects] = checkMetadataColumns(tbl, requiredCols, OutputOrder, DateTimeCols)
 
 
     % Normalize names to upper for consistent matching
@@ -125,4 +125,22 @@ function tblOut = checkMetadataColumns(tbl, requiredCols, OutputOrder, DateTimeC
         end
     end
 
+    % --- 6) Check that all values in RCV_PROJECT are uniqe ---
+
+    proj = string(tblOut.RCV_PROJECT);
+    proj = strtrim(proj);
+    
+    % Treat blanks / missing / "NaN" as missing
+    proj(strlength(proj)==0 | ismissing(proj) | strcmpi(proj,"nan")) = missing;
+    
+    uniqueProjects = unique(proj(~ismissing(proj)), 'stable');
+    
+    if isempty(uniqueProjects)
+        error("RCV_PROJECT contains no valid values.");
+    end
+    
+    all_identical = (isscalar(uniqueProjects));
+
+
 end
+
