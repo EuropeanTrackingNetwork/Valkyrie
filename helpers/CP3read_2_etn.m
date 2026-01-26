@@ -33,7 +33,10 @@ ETN.no_of_clicks = [];
 % DPM
 ETN.dpm = double(ETN.number_clicks_filtered ~= 0);
 
+% Dive into the train data to calculate train duration (milliseconds) and
+% IPI (for buzz-positive minute)
 ETN.milliseconds = zeros(height(ETN), 1);
+ETN.bpm = zeros(height(ETN), 1);
 for i = 1:height(ETN)
     train_data = ETN.train{i};
     if ~isempty(train_data)
@@ -42,8 +45,9 @@ for i = 1:height(ETN)
         keep_mask = quality_match & species_match;
         dummy_minute = train_data(keep_mask);
         if ~isempty(dummy_minute)
-            milliseconds = arrayfun(@(x) x.time(end) - x.time(1), dummy_minute);
+            milliseconds = arrayfun(@(x) x.time(end) - x.time(1), dummy_minute); % train duration
             ETN.milliseconds(i) = sum(milliseconds);
+            ETN.bpm(i) = any(arrayfun(@(s) any(s.ici < 40000), dummy_minute)); % are there any buzzes?
         end
     end
 end
@@ -70,6 +74,6 @@ ETN.minsON = double(ETN.nall > 0 & ETN.angle < 80) ;
 ETN.train = [] ;
 
 % rename columns to match ETN input fields
-ETN.Properties.VariableNames = {'DETECTION_DATE_TIME', 'TEMPERATURE', 'ANGLE', 'NUMBER_CLICKS_TOTAL', 'filename', 'QUALITY', 'NUMBER_CLICKS_FILTERED', 'DPM', 'MILLISECONDS', 'TIME_LOST_PERCENTAGE', 'SPECIES', 'RECORDED'};
+ETN.Properties.VariableNames = {'DETECTION_DATE_TIME', 'TEMPERATURE', 'ANGLE', 'NUMBER_CLICKS_TOTAL', 'filename', 'QUALITY', 'NUMBER_CLICKS_FILTERED', 'DPM', 'MILLISECONDS', 'BPM', 'TIME_LOST_PERCENTAGE', 'SPECIES', 'RECORDED'};
 
 end
