@@ -57,10 +57,10 @@ fileTbl = createFileTable(filePaths);
 
 % This step is to extract the names of each of the files and
 % their extention and then save them together in app.files
-[isValid, fileGroups, msg, unmatchedFiles,pairedFiles] = checkFileExtension(fileTbl.NameExt, check);
+[isValid, fileGroups, msg, unmatchedFiles, pairedFiles] = checkFileExtension(fileTbl.NameExt, check);
 
 % Check for dupliate files with different names
-fileTbl = removeFileDuplicates(fileTbl,pairedFiles);
+fileTbl = removeFileDuplicates(fileTbl, pairedFiles);
 
 % Create a list of only the P3 files that are paired:
 isP3 = endsWith(fileTbl.NameExt,'.CP3','IgnoreCase',true) | ...
