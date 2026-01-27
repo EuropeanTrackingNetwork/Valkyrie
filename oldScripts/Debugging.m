@@ -53,42 +53,19 @@ validExt = {'.CP1', '.CP3', '.FP1', '.FP3'};
 % filePaths to each specific file.
 [filePaths, path] = fileSelect(validExt);
 
-
-% Normalize to string column vector
-filePaths = string(filePaths(:));
-
-% === 2) Get info & deduplicate (keep uniques) ===
-% Safer than cellfun(@dir,...) since dir on full file path returns scalar struct
-info = arrayfun(@(fp) dir(fp), filePaths);
-name = string({info.name})';
-bytes = [info.bytes]';
-
-% Build a robust signature for uniqueness (case-insensitive name + size)
-sig = lower(name) + "|" + string(bytes);
-[~, ia] = unique(sig, 'stable');
-
-% Keep track of duplicates if you need them
-dupIdx = setdiff(1:numel(filePaths), ia);
-duplicateFiles = filePaths(dupIdx);
-
-% Keep only uniques
-uniqPaths  = filePaths(ia);
-uniqNames  = name(ia);
-uniqBytes  = bytes(ia);
-
-% === 3) Build a mapping table we will reuse later ===
-NameExt = uniqNames;                   % already "name.ext" from dir
-FullPath = uniqPaths;
-Bytes = uniqBytes;
-filesTbl = table(FullPath, NameExt, Bytes);
+fileTbl = createFileTable(filePaths);
 
 % This step is to extract the names of each of the files and
 % their extention and then save them together in app.files
-[isValid, fileGroups, msg, unmatchedFiles,pairedFiles] = checkFileExtension(cellstr(filesTbl.NameExt), check);
+[isValid, fileGroups, msg, unmatchedFiles,pairedFiles] = checkFileExtension(fileTbl.NameExt, check);
 
-isP3 = endsWith(pairedFiles,'.CP3','IgnoreCase',true) | ...
-    endsWith(pairedFiles,'.FP3','IgnoreCase',true);
-filtFiles = pairedFiles(isP3);
+% Check for dupliate files with different names
+fileTbl = removeFileDuplicates(fileTbl,pairedFiles);
+
+% Create a list of only the P3 files that are paired:
+isP3 = endsWith(fileTbl.NameExt,'.CP3','IgnoreCase',true) | ...
+    endsWith(fileTbl.NameExt,'.FP3','IgnoreCase',true);
+filtFiles = fileTbl.NameExt(isP3);
 filtFilesStr = string(filtFiles(:));
 
 [file, path] = uigetfile('*.csv', 'Select Metadata File');
