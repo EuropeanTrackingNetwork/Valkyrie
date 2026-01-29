@@ -11,6 +11,7 @@ function P = parsePODFilenames(nameExtList)
 %   file
 %   - BaseKey = yyyymmdd_receiver_fileNN
 %   - PairKey = BaseKey_PodFamily_ExtKind
+%   - NameScore = a score used to evaluate the names to keep the 
 % The station name is ignored since this is something the user can choose
 % and this can therefore be extremely unreliable and inconsistent
 
@@ -21,6 +22,13 @@ function P = parsePODFilenames(nameExtList)
     S = string(nameExtList(:));
     S(ismissing(S)) = "";
 
+
+    % --- Collapse any non-final CP/FP extension tokens ---
+    % Remove any ".CP1/.CP3/.FP1/.FP3" that are followed by another CP/FP token.
+    % Example: "file01.CP1.CP3" -> remove first ".CP1" -> "file01.CP3"
+    S = regexprep(S, '\.(?:CP|FP)[13](?=\.(?:CP|FP)[13]\b)', '', 'ignorecase');
+
+
     n = numel(S);
     DateStr  = strings(n,1);
     RecID    = strings(n,1);
@@ -30,17 +38,21 @@ function P = parsePODFilenames(nameExtList)
     HasPART   = false(n,1);
     HasSoft   = false(n,1);
 
-    % Extract extension family and kind from extension
-    % e.g., '... .CP3' -> family=CP, kind=3
-    extUpper = upper(string(extractAfter(S, '.')));   % "CP3", "FP1", or empty if no dot
+
+    % --- Parse the **last** extension only ---
+    % Using fileparts to respect last '.' reliably.
+    [~, ~, ext] = cellfun(@fileparts, cellstr(S), 'UniformOutput', false);
+    extUpper = upper(string(erase(string(ext), ".")));  % "CP1", "FP3"
+
     isCP = startsWith(extUpper, "CP");
     isFP = startsWith(extUpper, "FP");
     PodFamily(isCP) = "CP";
     PodFamily(isFP) = "FP";
     ExtKind = regexprep(extUpper, '^[A-Z]+', '');     % keep trailing digits, e.g., "3"
 
-    % Remove extension to parse the core
+    % Remove last extension to parse the core
     core = regexprep(S, '\.[^.]+$', '');   % remove last .ext
+
 
     for i = 1:n
         c = core(i);

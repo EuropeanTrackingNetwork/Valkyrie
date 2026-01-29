@@ -51,16 +51,17 @@ validExt = {'.CP1', '.CP3', '.FP1', '.FP3'};
 % Function where user can upload either single or multiple
 % files. Output is the path to the parent folder and the
 % filePaths to each specific file.
-[filePaths, path] = fileSelect(validExt);
+[filePaths, ~] = fileSelect(validExt);
 
 fileTbl = createFileTable(filePaths);
 
 % This step is to extract the names of each of the files and
 % their extention and then save them together in app.files
-[isValid, fileGroups, msg, unmatchedFiles, pairedFiles] = checkFileExtension(fileTbl.NameExt, check);
+[isValid, fileGroups, msg, unmatchedFiles, pairedFiles] = checkFileExtension(fileTbl.FullPath, check);
 
 % Check for dupliate files with different names
-fileTbl = removeFileDuplicates(fileTbl, pairedFiles);
+[fileTbl, removedFiles] = removeFileDuplicates(fileTbl, pairedFiles);
+% writetable(fileTbl, 'fileTblFull.txt'); %to save the table
 
 % Create a list of only the P3 files that are paired:
 isP3 = endsWith(fileTbl.NameExt,'.CP3','IgnoreCase',true) | ...
