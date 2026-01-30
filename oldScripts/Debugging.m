@@ -9,8 +9,6 @@ Config = jsondecode(configText);
 minDate = datetime(Config.MinDate, 'TimeZone', 'UTC');
 spec = Config.MetadataSpec;
 
-dtFormat = Config.datetimeFormats; % get the format of datetime to be accepted
-
 MandatoryFields = Config.MandatoryFields;
 
 OutputOrder = Config.OutputOrder;
@@ -57,7 +55,7 @@ fileTbl = createFileTable(filePaths);
 
 % This step is to extract the names of each of the files and
 % their extention and then save them together in app.files
-[isValid, fileGroups, msg, unmatchedFiles, pairedFiles] = checkFileExtension(fileTbl.FullPath, check);
+[~, ~, ~, unmatchedFiles, pairedFiles] = checkFileExtension(fileTbl.FullPath, check);
 
 % Check for dupliate files with different names
 [fileTbl, removedFiles] = removeFileDuplicates(fileTbl, pairedFiles);
@@ -91,7 +89,7 @@ if ~all_identical
     MetadataUITable.Data = tbl;
 end
 
-tbl = validateMetadata(tbl,minDate,MetaRoles,dtFormat,MandatoryFields); 
+tbl = validateMetadata(tbl,minDate,MetaRoles,DatetimeCols); 
 
 updatedMetadata = matchMetadataWithPOD(pairedFiles,tbl);
 MetaData = updatedMetadata;

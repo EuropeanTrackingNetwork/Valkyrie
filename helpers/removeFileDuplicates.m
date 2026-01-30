@@ -67,14 +67,14 @@ end
 
 
 % Compute FullPath for reporting
-if ismember("FullName", T.Properties.VariableNames)
-    T.FullPath = string(T.FullName);
-elseif ismember("Folder", T.Properties.VariableNames)
-    T.FullPath = string(fullfile(string(T.Folder), string(T.NameExt)));
-else
-    % Fallback: use NameExt only if no path info
-    T.FullPath = string(T.NameExt);
-end
+% if ismember("FullName", T.Properties.VariableNames)
+%     T.FullPath = string(T.FullName);
+% elseif ismember("Folder", T.Properties.VariableNames)
+%     T.FullPath = string(fullfile(string(T.Folder), string(T.NameExt)));
+% else
+%     % Fallback: use NameExt only if no path info
+%     T.FullPath = string(T.NameExt);
+% end
 
 
 % === Build keys for pair-level deduplication ===
@@ -158,7 +158,7 @@ Out = sortrows(Out, {'PairGroupKey','ExtKind','NameScore','Bytes'}, ...
     {'ascend'      ,'ascend' ,'ascend'   ,'descend'});
 
 % === Build 'removedFiles' report ===
-Rem                = T(~keepMask, :);
+Rem = T(~keepMask, :);
 
 % Join variant metrics onto removed rows (merge BOTH keys so PairGroupKey survives unsuffixed)
 Rem = outerjoin(Rem, Vfull, ...

@@ -1,6 +1,9 @@
 % Ensure that both datetime and coordinates are in the correct format
-function [tbl, errorMsg] = validateMetadata(tbl, minDate, roles, dtFormats, mandatoryFields)
-% - Validates datetime fields in roles using dtFormats and minDate.
+function [tbl, errorMsg] = validateMetadata(tbl, minDate, DatetimeCols, roles)
+% This function assumes that all datetimes columns are in ISO-8601 format
+% and that all field names have already been checked
+
+% - Validates datetime fields compared to minDate and eachother.
 % - Allows empty datetimes for NON-mandatory fields (no error).
 % - Validates latitude/longitude ranges.
 % - Aggregates per-row error messages; throws error if any issues.
@@ -9,118 +12,51 @@ function [tbl, errorMsg] = validateMetadata(tbl, minDate, roles, dtFormats, mand
 %   tbl            : table
 %   minDate        : datetime (UTC)
 %   roles          : struct mapping Role -> ColumnName (from JSON)
-%   dtFormats      : cell array of input formats (from JSON)
 %   mandatoryFields: string/cell array of mandatory column names (upper)
 %
 % Output:
-%   tbl       : table with datetime fields normalized to UTC (ISO-8601 format for display)
+%   tbl       : table with datetime fields and coordinate fields
 %   errorMsg  : kept for compatibility (empty string)
 
     errorMsg = "";
-
-    % Normalize inputs
-    if ischar(mandatoryFields) || isstring(mandatoryFields)
-        mandatoryFields = string(mandatoryFields);
-    end
-    mandatoryFields = upper(mandatoryFields);
-
-    presentCols = string(tbl.Properties.VariableNames);
-    presentColsU = upper(presentCols);
-
-    % Helper to find actual table column name by case-insensitive match
-    function nm = actualName(nameFromRoles)
-        candU = upper(string(nameFromRoles));
-        idx = find(presentColsU == candU, 1, 'first');
-        if isempty(idx)
-            nm = string.empty;
-        else
-            nm = presentCols(idx);
-        end
-    end
-
-    % --- Datetime roles to validate ---
-    dtRoleNames = {
-        'DeployDate'
-        'RecoverDate'
-        'ActivationDate'
-        'ValidUntilDate'
-        'BatteryEndDate'
-        'DownloadDate'
-    };
-
     allErrs = strings(0,1);
 
-    % Ensure dtFormats is a cellstr
-    if isstring(dtFormats) || ischar(dtFormats)
-        dtFormats = cellstr(dtFormats);
+    
+% 1) Check all datetime fields against minDate
+    for f = DatetimeCols'
+        data = tbl.(f);
+        bad  = data < minDate;
+
+        if any(bad)
+            idx = find(bad);
+            for i = 1:numel(idx)
+                allErrs(end+1) = sprintf("Row %d: %s is earlier than minDate.", ...
+                                          idx(i), upper(f));
+            end
+        end
     end
 
-    for r = 1:numel(dtRoleNames)
-        roleName = dtRoleNames{r};
-        if ~isfield(roles, roleName)
-            continue; % role not used in this config
-        end
+    % --- 2) Cross-field ordering rules (using roles struct) ---
+    deploy     = tbl.(roles.DeployDate);
+    activate   = tbl.(roles.ActivationDate);
+    recover    = tbl.(roles.RecoverDate);
+    validUntil = tbl.(roles.ValidUntilDate);
 
-        fieldName = actualName(roles.(roleName));
-        if isempty(fieldName)
-            continue; % column not present (likely optional and absent)
-        end
-
-        colMandatory = ismember(upper(fieldName), mandatoryFields);
-        colData = tbl.(fieldName);
-
-        % 1) If already datetime: set timezone + display format; validate minDate.
-        if isdatetime(colData)
-            if isempty(colData.TimeZone)
-                colData.TimeZone = 'UTC';
-            else
-                colData.TimeZone = 'UTC'; % normalize to UTC per your config
-            end
-            colData.Format = "yyyy-MM-dd'T'HH:mm:ss'Z'";
-
-            % Min date check
-            bad = colData < minDate;
-            if any(bad)
-                idx = find(bad);
-                for ii = 1:min(numel(idx), height(tbl))
-                    allErrs(end+1) = "Row " + idx(ii) + ": " + upper(fieldName) + ...
-                                     " - Date earlier than allowed minimum.";
-                end
-            end
-
-            tbl.(fieldName) = colData;
-            continue;
-        end
-
-        % 2) Otherwise, treat as text and parse row-wise
-        svals = string(colData);
-        n = numel(svals);
-        parsed = NaT(n,1,'TimeZone','UTC');
-        parsed.Format = "yyyy-MM-dd'T'HH:mm:ss'Z'";
-
-        for i = 1:n
-            s = strtrim(svals(i));
-
-            % Allow empty if NOT mandatory
-            if strlength(s) == 0 && ~colMandatory
-                parsed(i) = NaT('TimeZone','UTC');
-                continue;
-            end
-
-            [errStr, dt] = validateDatetime_amb(s, minDate, dtFormats);
-
-            if ~isnat(dt)
-                parsed(i) = dt; % already in UTC with ISO display
-            end
-
-            if strlength(errStr) > 0
-                allErrs(end+1) = "Row " + i + ": " + upper(fieldName) + " - " + errStr;
-            end
-        end
-
-        tbl.(fieldName) = parsed;
+    if any(deploy > recover)
+        allErrs(end+1) = "Deployment date must be before recovery date.";
     end
 
+    if any(activate > recover)
+        allErrs(end+1) = "Activation date must be before recovery date.";
+    end
+
+    if any(activate > validUntil)
+        allErrs(end+1) = "Activation date must be before valid until date.";
+    end
+
+    if any(deploy > validUntil)
+        allErrs(end+1) = "Deployment date must be before valid until date.";
+    end
 
     % --- Coordinates ---
     if isfield(roles, 'Latitude') && isfield(roles, 'Longitude')

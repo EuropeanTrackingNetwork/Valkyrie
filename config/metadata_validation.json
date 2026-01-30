@@ -37,16 +37,6 @@
     "BATTERY_END_DATE": { "Type": "Datetime", "TimeZone": "UTC", "Role": "BatteryEndDate" },
     "DOWNLOAD_DATE_TIME": { "Type": "Datetime", "TimeZone": "UTC", "Role": "DownloadDate" },
     "COMMENTS": { "Type": "String" }
-  },
-  "datetimeFormats": [
-    "yyyy-MM-dd HH:mm:ss",
-    "yyyy-MM-dd HH:mm",
-    "yyyy-MM-dd'T'HH:mm:ss'Z'",
-    "yyyy-MM-dd'T'HH:mm'Z'",
-    "yyyy/MM/dd HH:mm:ss",
-    "yyyy/MM/dd HH:mm",
-    "yyyy-MM-dd'T'HH:mm:ss",
-    "yyyy-MM-dd'T'HH:mm"
-  ]
+  }
 }
 

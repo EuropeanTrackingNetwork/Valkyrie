@@ -54,7 +54,7 @@ function [isValid,fileGroups,errorMsg,missing, pairedFiles] = checkFileExtension
     
     % Build file lists without growing arrays repeatedly
     for i = 1:numel(files)
-        [folder, name, ext] = fileparts(files{i});
+        [~, name, ext] = fileparts(files{i});
         extU = upper(ext); % just to make sure all file extensions are upper case
         
 

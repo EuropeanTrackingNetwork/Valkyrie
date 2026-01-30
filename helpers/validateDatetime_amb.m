@@ -25,6 +25,12 @@ function [errorMsg, formattedDate] = validateDatetime_amb(inputStr, minDate, dtF
         fmt = dtFormats{i};
         try
             dt = datetime(s, 'InputFormat', fmt, 'TimeZone', 'UTC');
+
+            % ---- Reject unreasonable dates immediately ----
+            if year(dt) < 1900
+                continue;  % try next format
+            end
+
             dt.Format = "yyyy-MM-dd'T'HH:mm:ss'Z'";
             formattedDate = dt;
             if dt < minDate
@@ -94,6 +100,7 @@ function [errorMsg, formattedDate] = validateDatetime_amb(inputStr, minDate, dtF
 
 
     % 4) As an extra robustness step, try MATLAB auto-parse (often handles "04-Sep-2022 08:43:00")
+    % OBS: This does not work if format is dd/MM/yy HH:mm
     try
         dt = datetime(s, 'TimeZone', 'UTC'); % let MATLAB infer
         dt.Format = "yyyy-MM-dd'T'HH:mm:ss'Z'";
