@@ -1,11 +1,11 @@
-function tbl = createDateTime(tbl, app.Config)
+function tbl = createDateTime(tbl, Config)
 
 % Collapse date and time columns into ISO 8601 format
 % YYYY-mm-ddThh:mm:ssZ
 
 % Prefixes:
-specNames = fieldnames(app.Config.MetadataSpec);
-isDatetime = cellfun(@(f) isfield(app.Config.MetadataSpec.(f),'Type') && strcmpi(app.Config.MetadataSpec.(f).Type,'Datetime'), specNames); % columns of type Datetime from JSON file
+specNames = fieldnames(Config.MetadataSpec);
+isDatetime = cellfun(@(f) isfield(Config.MetadataSpec.(f),'Type') && strcmpi(Config.MetadataSpec.(f).Type,'Datetime'), specNames); % columns of type Datetime from JSON file
 prefixColumns = specNames(isDatetime);
 prefixes = string(regexprep(prefixColumns, '^(.*?)(?:_DATE(?:_TIME)?)$', '$1_')); % remove everything after DATE, inclusively
 
@@ -42,15 +42,23 @@ for p = prefixes(:).'
         dateStrings = y + "-" + m + "-" + d + "T" + t + "Z";
         outVar = p + "DATE_TIME";
 
+        dateTime = datetime(dateStrings, "Format", "yyyy-MM-dd'T'HH:mm:ss'Z'");
+
         tbl(:, [yearVar, monthVar, dayVar, timeVar]) = []; % remove expanded columns
+
     else
         % Build date-only (no time)
         dateStrings = y + "-" + m + "-" + d;
         outVar = p + "DATE";
 
+        dateTime = datetime(dateStrings, "Format", "yyyy-MM-dd");
+
+
         tbl(:, [yearVar, monthVar, dayVar]) = []; % remove expanded columns
+
+        
     end
 
     % put it into tbl, so it now matches the json config
-    tbl.(outVar) = dateStrings;
+    tbl.(outVar) = dateTime;
 end

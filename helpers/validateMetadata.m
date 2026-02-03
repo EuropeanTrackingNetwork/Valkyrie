@@ -1,5 +1,5 @@
 % Ensure that both datetime and coordinates are in the correct format
-function [tbl, errorMsg] = validateMetadata(tbl, minDate, DatetimeCols, roles)
+function [tbl, errorMsg] = validateMetadata(tbl, minDate,roles,DatetimeCols)
 % This function assumes that all datetimes columns are in ISO-8601 format
 % and that all field names have already been checked
 
@@ -23,8 +23,8 @@ function [tbl, errorMsg] = validateMetadata(tbl, minDate, DatetimeCols, roles)
 
     
 % 1) Check all datetime fields against minDate
-    for f = DatetimeCols'
-        data = tbl.(f);
+    for f = 1:length(DatetimeCols)
+        data = tbl.(DatetimeCols(f));
         bad  = data < minDate;
 
         if any(bad)

@@ -72,6 +72,9 @@ filtFilesStr = string(filtFiles(:));
 
 % Metadata validation
 tbl = loadMetadataFile(fullfile(path, file)); 
+
+tbl = createDateTime(tbl, Config); % Takes year, month, date columns and collapses them + gives ISO 8601 format
+
 [tbl, all_identical, projects] = checkMetadataColumns(tbl, MandatoryFields,OutputOrder, DatetimeCols);
 
 if ~all_identical
