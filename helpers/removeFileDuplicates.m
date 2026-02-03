@@ -101,12 +101,12 @@ hasKinds = splitapply(@(k) all(ismember(["1","3"], unique(string(k)))), T.ExtKin
 
 
 % Pair-level score = sum of NameScore across the two files (lower is better)
-sumScore = splitapply(@nansum, T.NameScore, Gv);
+sumScore = splitapply(@sum, T.NameScore, Gv);
 
 
 % Tie-breakers at pair level
-sumBytes = splitapply(@(x) nansum(x), T.Bytes, Gv);            % higher is better
-minScore = splitapply(@(x) nanmin(x), T.NameScore, Gv);         % lower is better
+sumBytes = splitapply(@(x) sum(x, 'omitnan'), T.Bytes, Gv);            % higher is better
+minScore = splitapply(@(x) min(x, [], 'omitnan'), T.NameScore, Gv);         % lower is better
 
 % Tiebreak based on alphabetical earliest name (purely cosmetic, does not remove files)
 firstName = splitapply(@(x) string(x(find( ~cellfun(@isempty, x), 1, 'first'))), ...
