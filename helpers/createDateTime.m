@@ -42,7 +42,7 @@ for p = prefixes(:).'
         dateStrings = y + "-" + m + "-" + d + "T" + t + "Z";
         outVar = p + "DATE_TIME";
 
-        dateTime = datetime(dateStrings, "Format", "yyyy-MM-dd'T'HH:mm:ss'Z'");
+        dateTime = datetime(dateStrings, "Format", "yyyy-MM-dd'T'HH:mm:ss'Z'","TimeZone","UTC");
 
         tbl(:, [yearVar, monthVar, dayVar, timeVar]) = []; % remove expanded columns
 
@@ -51,7 +51,7 @@ for p = prefixes(:).'
         dateStrings = y + "-" + m + "-" + d;
         outVar = p + "DATE";
 
-        dateTime = datetime(dateStrings, "Format", "yyyy-MM-dd");
+        dateTime = datetime(dateStrings, "Format", "yyyy-MM-dd","TimeZone","UTC");
 
 
         tbl(:, [yearVar, monthVar, dayVar]) = []; % remove expanded columns
