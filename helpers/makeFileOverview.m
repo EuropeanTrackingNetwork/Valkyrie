@@ -36,7 +36,7 @@ for i = 1:n
 
     % Metadata deployment length (Activation → Valid Until)
     if any(mIdx)
-        t1 = MetaData.ACTIVATION_DATE_TIME(mIdx);
+        t1 = MetaData.DEPLOY_DATE_TIME(mIdx);
         t2 = MetaData.VALID_DATA_UNTIL_DATE_TIME(mIdx);
         dur = t2 - t1;
         overview.MetadataDeployment(i) = formatDuration(dur);

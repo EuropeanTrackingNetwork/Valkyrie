@@ -1,4 +1,4 @@
-% Debuggind code
+% Debugging code
 
 % Start up function
 basePath = fileparts(mfilename('fullpath'));
@@ -97,65 +97,7 @@ tbl = validateMetadata(tbl,minDate,MetaRoles,DatetimeCols);
 updatedMetadata = matchMetadataWithPOD(fileTbl.NameExt,tbl);
 MetaData = updatedMetadata;
 
-
-disp(MetaData.MatchingFiles);
-
-% === Build the list of files to process based on metadata matches ===
-nonEmpty = ~cellfun(@isempty, MetaData.MatchingFiles);
-if any(nonEmpty)
-    matchedCells = MetaData.MatchingFiles(nonEmpty);
-    
-    flat = {};  % will become a column cell array
-    for i = 1:numel(matchedCells)
-        ci = matchedCells{i};
-    
-        if isstring(ci)
-            % Convert string array to cellstr (each element becomes a char in a cell)
-            ci = cellstr(ci(:));
-        elseif ischar(ci)
-            % Single char row => wrap into cell
-            ci = {ci};
-        elseif iscell(ci)
-            % Nested cell: ensure column shape
-            ci = ci(:);
-        else
-            % Unknown type — skip with a warning
-            warning('MatchingFiles{%d} has unsupported type: %s', i, class(ci));
-            continue;
-        end
-    
-        % Append
-        flat = [flat; ci]; % ensure vertical concatenation
-    end
-    
-    % Remove empties and convert to string array
-    flat = flat(~cellfun(@isempty, flat));
-    matchedFilesAll = string(flat);
-
-     % Optional: trim whitespace and deduplicate
-    matchedFilesAll = unique(strtrim(matchedFilesAll));
-else
-    matchedFilesAll = string([]); % no matches at all
-end          
-
-disp(matchedFilesAll);
-
-% Intersect to ensure we only process files the user selected AND that have metadata
-processNames = intersect(filtFilesStr, matchedFilesAll, 'stable');  % preserves UI order
-
-
-% Find rows whose NameExt is in processNames, preserving the 'stable' order of processNames
-[tf, loc] = ismember(processNames, fileTbl.NameExt);
-processList = fileTbl.FullPath(loc(tf));   % full paths in UI order
-
-% Build a table with path + filename columns for downstream code
-[processFolders, processNamesNoExt, processExt] = arrayfun(@fileparts, cellstr(processList), ...
-    'UniformOutput', false);
-processFileNames = string(processNamesNoExt) + string(processExt);
-processPaths = string(processFolders);
-
-processTbl = table(processPaths, processFileNames, processList, ...
-    'VariableNames', {'Path','FileName','FullPath'});
+[processTbl,metaForProcess,processList] = buildProcessTbl(MetaData, filtFiles,fileTbl);
 
 n = '';
 if check == 1
@@ -168,8 +110,10 @@ ProcessingStatus = repmat({'NOT ATTEMPTED'}, nFiles, 1) ;
 % Process detection files
 for i = 1:height(processTbl)
 
+    i
     filename = processTbl.FileName{i};
     path = processTbl.Path{i};
+    [~,~,ext] = fileparts(filename);
 
     try % Wrapped in a try-catch to ensure app will not crash if the import and formatting doesn't work for one of the files
         switch ext
@@ -188,8 +132,11 @@ for i = 1:height(processTbl)
     end
 
     %Set the timezone for ETN data (Detection date time column)
-    dep = metadata.DEPLOY_DATE_TIME(i);
-    val = metadata.VALID_DATA_UNTIL_DATE_TIME(i);
+    
+    metaIdx = processTbl.MetaRow(i);
+    dep = MetaData.DEPLOY_DATE_TIME(metaIdx);
+    val = MetaData.VALID_DATA_UNTIL_DATE_TIME(metaIdx);
+
     ETN.DETECTION_DATE_TIME.TimeZone = 'UTC';
     inRange = ETN.DETECTION_DATE_TIME >= dep & ETN.DETECTION_DATE_TIME <= val;
     ETN = ETN(inRange, :);
@@ -205,7 +152,7 @@ end
 Receivers = createReceivers(MetaData,filtFiles);
 
 % Make an overview of the output
-overview = makeFileOverview(filtFiles, MetaData,Detections);
+overview = makeFileOverview(filtFiles, MetaData,Detections,ProcessingStatus);
 
 % Prepare and save metadata
 isMetadataRow = MetaData.RowType == "metadata";
