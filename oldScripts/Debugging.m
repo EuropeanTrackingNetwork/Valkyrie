@@ -94,7 +94,7 @@ end
 
 tbl = validateMetadata(tbl,minDate,MetaRoles,DatetimeCols); 
 
-updatedMetadata = matchMetadataWithPOD(pairedFiles,tbl);
+updatedMetadata = matchMetadataWithPOD(fileTbl.NameExt,tbl);
 MetaData = updatedMetadata;
 
 
@@ -145,8 +145,8 @@ processNames = intersect(filtFilesStr, matchedFilesAll, 'stable');  % preserves 
 
 
 % Find rows whose NameExt is in processNames, preserving the 'stable' order of processNames
-[tf, loc] = ismember(processNames, filesTbl.NameExt);
-processList = filesTbl.FullPath(loc(tf));   % <- this is what you want: full paths in UI order
+[tf, loc] = ismember(processNames, fileTbl.NameExt);
+processList = fileTbl.FullPath(loc(tf));   % full paths in UI order
 
 % Build a table with path + filename columns for downstream code
 [processFolders, processNamesNoExt, processExt] = arrayfun(@fileparts, cellstr(processList), ...

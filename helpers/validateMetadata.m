@@ -60,8 +60,8 @@ function [tbl, errorMsg] = validateMetadata(tbl, minDate,roles,DatetimeCols)
 
     % --- Coordinates ---
     if isfield(roles, 'Latitude') && isfield(roles, 'Longitude')
-        latField = actualName(roles.Latitude);
-        lonField = actualName(roles.Longitude);
+        latField = roles.Latitude;
+        lonField = roles.Longitude;
     
         if ~isempty(latField) && ~isempty(lonField)
             lats = string(tbl.(latField));

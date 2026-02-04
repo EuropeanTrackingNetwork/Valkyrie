@@ -15,10 +15,10 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
     % -----------------------------
     % Normalize file list & filter
     % -----------------------------
-    if ischar(fileList)
-        fileList = {fileList};
-    end
-    assert(iscell(fileList), 'fileList must be a cell array of char.');
+
+   % fileList = {fileList};
+
+    %assert(iscell(fileList), 'fileList must be a cell array of char.');
     isP3 = endsWith(fileList, {'.CP3', '.FP3'}, 'IgnoreCase', true);
     fileList = fileList(isP3);
 
@@ -181,7 +181,7 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
     nonEmpty = ~cellfun(@isempty, matches);
     if any(nonEmpty)
         % Flatten safely; if all empty, leave empty list
-        matchedFlat = unique(string(vertcat(matches{nonEmpty})));
+        matchedFlat = unique(string([matches{nonEmpty}]));
     else
         matchedFlat = string([]);  % no matches at all
     end
