@@ -1,0 +1,188 @@
+Private Sub Worksheet_Change(ByVal Target As Range)
+    On Error GoTo CleanExit
+
+    ' Prevent recursive triggering
+    Application.EnableEvents = False
+
+    Dim cell As Range
+    Dim dt As Date
+    Dim isDate As Boolean
+
+    ' Valid datetime input columns
+    Dim dtCols As Variant
+    dtCols = Array(41, 42, 43, 44, 45, 46)  ' AO, AP, AQ, AR, AS, AT
+
+    ' Loop through all changed cells (supports paste)
+    For Each cell In Target
+
+        If Not IsError(cell) Then
+
+            '-----------------------------------------------------------
+            ' PART 1: DATETIME HANDLING (AO, AP, AQ, AR, AS, AT)
+            '-----------------------------------------------------------
+            If Not IsError(Application.Match(cell.Column, dtCols, 0)) Then
+
+                ' Check if valid date
+                On Error Resume Next
+                dt = CDate(cell.Value)
+                isDate = (Err.Number = 0)
+                Err.Clear
+                On Error GoTo 0
+
+                If Trim(cell.Value) = "" Then
+                    cell.Interior.ColorIndex = xlNone
+                    GoTo NextCell
+                End If
+
+                If Not isDate Then
+                    cell.Interior.Color = RGB(255, 200, 200)
+                    GoTo NextCell
+                Else
+                    cell.Interior.ColorIndex = xlNone
+                End If
+
+                ' Route outputs
+                Select Case cell.Column
+
+                    ' AO (41) → C-F
+                    Case 41
+                        Cells(cell.Row, 3).NumberFormat = "0"
+                        Cells(cell.Row, 4).NumberFormat = "0"
+                        Cells(cell.Row, 5).NumberFormat = "0"
+                        Cells(cell.Row, 6).NumberFormat = "hh:mm:ss"
+
+                        Cells(cell.Row, 3).Value = Year(dt)
+                        Cells(cell.Row, 4).Value = Month(dt)
+                        Cells(cell.Row, 5).Value = Day(dt)
+                        Cells(cell.Row, 6).Value = TimeValue(dt)
+
+                    ' AP (42) → H-K
+                    Case 42
+                        Cells(cell.Row, 8).NumberFormat = "0"
+                        Cells(cell.Row, 9).NumberFormat = "0"
+                        Cells(cell.Row, 10).NumberFormat = "0"
+                        Cells(cell.Row, 11).NumberFormat = "hh:mm:ss"
+
+                        Cells(cell.Row, 8).Value = Year(dt)
+                        Cells(cell.Row, 9).Value = Month(dt)
+                        Cells(cell.Row, 10).Value = Day(dt)
+                        Cells(cell.Row, 11).Value = TimeValue(dt)
+
+                    ' AQ (43) → N-Q
+                    Case 43
+                        Cells(cell.Row, 14).NumberFormat = "0"
+                        Cells(cell.Row, 15).NumberFormat = "0"
+                        Cells(cell.Row, 16).NumberFormat = "0"
+                        Cells(cell.Row, 17).NumberFormat = "hh:mm:ss"
+
+                        Cells(cell.Row, 14).Value = Year(dt)
+                        Cells(cell.Row, 15).Value = Month(dt)
+                        Cells(cell.Row, 16).Value = Day(dt)
+                        Cells(cell.Row, 17).Value = TimeValue(dt)
+
+                    ' AR (44) → R-U
+                    Case 44
+                        Cells(cell.Row, 18).NumberFormat = "0"
+                        Cells(cell.Row, 19).NumberFormat = "0"
+                        Cells(cell.Row, 20).NumberFormat = "0"
+                        Cells(cell.Row, 21).NumberFormat = "hh:mm:ss"
+
+                        Cells(cell.Row, 18).Value = Year(dt)
+                        Cells(cell.Row, 19).Value = Month(dt)
+                        Cells(cell.Row, 20).Value = Day(dt)
+                        Cells(cell.Row, 21).Value = TimeValue(dt)
+
+                    ' AS (45) → AE-AG
+                    Case 45
+                        Cells(cell.Row, 31).NumberFormat = "0"
+                        Cells(cell.Row, 32).NumberFormat = "0"
+                        Cells(cell.Row, 33).NumberFormat = "0"
+
+                        Cells(cell.Row, 31).Value = Year(dt)
+                        Cells(cell.Row, 32).Value = Month(dt)
+                        Cells(cell.Row, 33).Value = Day(dt)
+
+                    ' AT (46) → AH-AK
+                    Case 46
+                        Cells(cell.Row, 34).NumberFormat = "0"
+                        Cells(cell.Row, 35).NumberFormat = "0"
+                        Cells(cell.Row, 36).NumberFormat = "0"
+                        Cells(cell.Row, 37).NumberFormat = "hh:mm:ss"
+
+                        Cells(cell.Row, 34).Value = Year(dt)
+                        Cells(cell.Row, 35).Value = Month(dt)
+                        Cells(cell.Row, 36).Value = Day(dt)
+                        Cells(cell.Row, 37).Value = TimeValue(dt)
+                End Select
+
+            End If
+
+
+            '-----------------------------------------------------------
+            ' PART 2: L & M — enforce XX.XXXXX
+            '-----------------------------------------------------------
+            If cell.Column = 12 Or cell.Column = 13 Then
+
+                Dim v As String
+                Dim parts As Variant
+                Dim leftPart As String, rightPart As String
+                Dim changed As Boolean
+
+                v = Trim(cell.Value)
+                changed = False
+
+                cell.NumberFormat = "@"
+
+                If v = "" Then
+                    cell.Interior.ColorIndex = xlNone
+                    GoTo NextCell
+                End If
+
+                If InStr(v, ".") > 0 Then
+                    parts = Split(v, ".")
+                    If UBound(parts) = 1 Then
+                        leftPart = parts(0)
+                        rightPart = parts(1)
+
+                        If Len(leftPart) = 1 And IsNumeric(leftPart) Then
+                            leftPart = "0" & leftPart
+                            changed = True
+                        End If
+
+                        If Len(rightPart) = 4 And IsNumeric(rightPart) Then
+                            rightPart = rightPart & "0"
+                            changed = True
+                        End If
+
+                        If changed Then
+                            cell.Value = leftPart & "." & rightPart
+                            v = cell.Value
+                        End If
+                    End If
+                End If
+
+                If v Like "##.#####" Then
+                    cell.Interior.ColorIndex = xlNone
+                Else
+                    cell.Interior.Color = RGB(255, 200, 200)
+                End If
+
+            End If
+
+
+            '-----------------------------------------------------------
+            ' PART 3: Column A forced to text
+            '-----------------------------------------------------------
+            If cell.Column = 1 Then
+                cell.NumberFormat = "@"
+                cell.Value = CStr(cell.Value)
+            End If
+
+        End If
+
+NextCell:
+    Next cell
+
+CleanExit:
+    Application.EnableEvents = True
+End Sub
