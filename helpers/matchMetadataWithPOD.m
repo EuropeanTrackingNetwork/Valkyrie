@@ -11,6 +11,7 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
 %
 % Output:
 %   updatedMetadata : table (metadata rows + unmatched file rows)
+%   + it changes RECEIVER to inlcude the POD type
 
     % -----------------------------
     % Normalize file list & filter
@@ -162,6 +163,25 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
         podTypes(i) = typeDetected;
 
  
+    end
+    
+    % --- Add podtype in front of the receiver serial number
+    
+    for i = 1:n
+        if podTypes(i) ~= ""   % Only modify if we actually found a POD type
+            rec = string(metadata.RECEIVER(i));
+            rec = strtrim(rec);
+    
+            % Extract numeric part again (same logic you already use)
+            digits = regexp(rec, '\d+', 'match', 'once');
+            if isempty(digits)
+                % If no digits, skip (or prepend full string if you prefer)
+                continue;
+            end
+    
+            % Write back the modified receiver
+            metadata.RECEIVER(i) = podTypes(i) + "-" + digits;
+        end
     end
 
     % -----------------------------------------

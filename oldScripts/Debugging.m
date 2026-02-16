@@ -76,7 +76,7 @@ tbl = loadMetadataFile(fullfile(path, file));
 tbl = createDateTime(tbl, Config); % Takes year, month, date columns and collapses them + gives ISO 8601 format
 
 [tbl, all_identical, projects] = checkMetadataColumns(tbl, MandatoryFields,OutputOrder, DatetimeCols);
-
+    
 if ~all_identical
     chosen = chooseReceiverProjectPopup(projects, tbl);
 
@@ -131,8 +131,11 @@ for i = 1:height(processTbl)
         continue; % SKip to next file
     end
 
+    % Change the filename column
+    depID = metaForProcess.DeploymentID(i);
+    ETN.FileName(:) = string(depID);
+
     %Set the timezone for ETN data (Detection date time column)
-    
     metaIdx = processTbl.MetaRow(i);
     dep = MetaData.DEPLOY_DATE_TIME(metaIdx);
     val = MetaData.VALID_DATA_UNTIL_DATE_TIME(metaIdx);
@@ -148,18 +151,30 @@ for i = 1:height(processTbl)
     end
 end
 
+
+
 % Make receiver output
 Receivers = createReceivers(MetaData,filtFiles);
 
 % Make an overview of the output
 overview = makeFileOverview(filtFiles, MetaData,Detections,ProcessingStatus);
 
-% Prepare and save metadata
-isMetadataRow = MetaData.RowType == "metadata";
-hasMatch      = MetaData.MatchCount > 0;
-cleanedMeta   = MetaData(isMetadataRow & hasMatch, :);
+% --- Save output files
 
-OutputOrder = Config.OutputOrder;
-cleanedMeta = CleanMetadata(cleanedMeta,OutputOrder,DatetimeCols);
+% Keep only metadata rows (exclude file-only) AND with at least one match
+rowsMeta = ismember(MetaData.RowType, "metadata"); % has metadata
+rowsHasMatch = MetaData.MatchCount > 0; % has match
+cleanedMeta = MetaData(rowsMeta & rowsHasMatch, :);
+% Filter to only include columns required for ETN:
+cleanedMeta = cleanedMeta(:, OutputOrder);
+
+% Save the cleaned and matched metadata
 writetable(cleanedMeta, fullfile(basePath, [nameOnly '_metadata.csv']));
-            
+
+% Save the detections that had metadata matches
+writetable(Detections, fullfile(basePath, [nameOnly '_detections.csv']));
+
+% Create receiver file
+Receivers = createReceivers(MetaData, cellstr(app.processList));
+% Save receiver file
+writetable(Receivers, fullfile(basePath, [nameOnly '_receivers.csv']));

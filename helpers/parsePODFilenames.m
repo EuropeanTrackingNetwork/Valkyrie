@@ -60,14 +60,29 @@ function P = parsePODFilenames(nameExtList)
         % 1) Date: accept 4-digit year, 1–2-digit month/day, any non-digits as separators
         %    Matches "2023 10 31", "2023-10-31", "2023_10_31"
         
-        datePat = '(?<Y>\d{4})\D*(?<M>\d{1,2})\D*(?<D>\d{1,2})(?=\D*(?:[FC]?\D*POD\d+))';
+
+        % Strict: 4 digits, space(s), 1–2 digits, space(s), 1–2 digits
+
+        datePat = ['(?<!\d)' ...                         % no digit immediately before
+            '(?<Y>\d{4})\D+' ...                  % 4-digit year
+            '(?<M>0?[1-9]|1[0-2])\D+' ...         % month 1–12 with optional leading 0
+            '(?<D>0?[1-9]|[12]\d|3[01])' ...      % day 1–31 with optional leading 0
+            '(?!\d)'];                             % no digit immediately after
+
+
         d = regexp(c, datePat, 'names', 'once');
         
         if ~isempty(d)
-            DateStr(i) = sprintf('%04d%02d%02d', str2double(d.Y), str2double(d.M), str2double(d.D));
+            try
+                DateStr(i) = sprintf('%04d%02d%02d', str2double(d.Y), str2double(d.M), str2double(d.D));
+            catch
+                DateStr(i) = "UNKNOWNDATE";
+            end
+
         else
             DateStr(i) = "UNKNOWNDATE";
         end
+
 
 
         % 2) Receiver digits: accept POD1990, CPOD1686, FPOD_7043, POD 1593

@@ -59,9 +59,16 @@ function [processTbl,metaAligned,processList] = buildProcessTbl(metaTbl,filtFile
 
     % ----- compute MetaRow per processed file -----
     metaIdx = zeros(numel(procNames), 1, 'int32');
+
     for i = 1:numel(procNames)
-        metaIdx(i) = fileToMeta(char(procNames(i)));
+        key = char(procNames(i));
+        if isKey(fileToMeta, key)
+            metaIdx(i) = fileToMeta(key);
+        else
+            metaIdx(i) = 0; % 0 = no metadata match
+        end
     end
+
 
     % ----- assemble outputs -----
     [folders, names, exts] = arrayfun(@fileparts, cellstr(fullPaths), 'UniformOutput', false);
@@ -73,8 +80,15 @@ function [processTbl,metaAligned,processList] = buildProcessTbl(metaTbl,filtFile
         'VariableNames', {'Path','FileName','FullPath','MetaRow'} ...
     );
 
-    metaAligned = metaTbl(metaIdx, :);
-    processList = fullPaths;
+
+    matched = metaIdx > 0;
+
+    processTbl = processTbl(matched, :);
+
+    metaAligned = metaTbl(metaIdx(matched),:);
+    processList = processTbl.FullPath;
+
+
 
 end
 

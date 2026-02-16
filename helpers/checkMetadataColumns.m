@@ -18,6 +18,7 @@
 function [tblOut, all_identical, uniqueProjects] = checkMetadataColumns(tbl, requiredCols, OutputOrder, DateTimeCols)
 
 
+    emptyMarker = "Na";
     % Normalize names to upper for consistent matching
     tbl.Properties.VariableNames = upper(string(tbl.Properties.VariableNames));
     mandatory   = upper(string(requiredCols));
@@ -94,7 +95,7 @@ function [tblOut, all_identical, uniqueProjects] = checkMetadataColumns(tbl, req
         if ismember(col,DateTimeCols)
             tbl.(col) = NaT(height(tbl), 1); %empty datetime
         else
-            tbl.(col) = repmat("NaN", height(tbl), 1); % empty marker
+            tbl.(col) = repmat(emptyMarker, height(tbl), 1); % empty marker
         end
     end
 
@@ -120,7 +121,7 @@ function [tblOut, all_identical, uniqueProjects] = checkMetadataColumns(tbl, req
         else
             % non-datetime: set empty/missing to "NaN"
             x = string(tblOut.(col));
-            x(strlength(strtrim(x))==0 | ismissing(x)) = "NaN";
+            x(strlength(strtrim(x))==0 | ismissing(x)) = emptyMarker;
             tblOut.(col) = x;
         end
     end
@@ -140,7 +141,6 @@ function [tblOut, all_identical, uniqueProjects] = checkMetadataColumns(tbl, req
     end
     
     all_identical = (isscalar(uniqueProjects));
-
 
 end
 
