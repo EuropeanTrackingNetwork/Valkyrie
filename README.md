@@ -1,21 +1,38 @@
-# Data aggregation tool
+# Valkyrie - Data Harmonization Tool for C-POD and F-POD data
 
-## Project description
-This project is part of the EU DTO-BioFlow (https://dto-bioflow.eu/). The focus is on aggregating passive acoustic monitoring (PAM) data and harmonising and standardising it. The tool will allow users that store CPOD or FPOD files (from here referred to as POD files) to upload them into a shared database, including relevant metadata, ensuring that porpoise detection data is harmonised across deployments and projects. 
+Valkyrie is a tool developed within the DTO BioFlow project (https://dto-bioflow.eu/) to harmonize metadata and porpoise detection data from C‑PODs and F‑PODs. It takes raw detection files (CP1/CP3 or FP1/FP3 pairs) together with standardized deployment metadata and produces ETN‑ready output files that can be uploaded directly to the ETN Underwater Acoustics database.
+Valkyrie validates metadata, matches POD detection files to deployments, extracts detections from raw files, and formats all outputs according to ETN requirements.
 
-## Features
-- File selection that allows the user to select multiple files and run a batch upload
-- Resolution selection: there is a built-in flexibility for the resolution of the output data. However, this feature may set to a default resolution that harmonises with existing data
-- Fill in mandatory metadata: this is done for a single file at a time and the metadata is saved for each file and added to the specific file output before upload
-- Validation of metadata input: the data that is supplied by the user goes through a quality check (e.g. that datetime and position data is correctly input)
-- Choice of optional metadata input: not yet incorporated
-- File import: the POD files are imported sequentially and the import function depends on the file type (CPOD or FPOD)
-- Extracting output: the imported POD files will run through specific functions to extract and format the data for ingestion into the target database
-- Formatting: the files will be formatted to match database 
-- Upload: the data will upload output files to database
+## Overview
+Valkyrie provides an automated workflow for preparing POD datasets for ingestion into ETN. After registering as an ETN user and obtaining a project number, users can upload one metadata CSV file and the raw POD detection files for their deployments. Valkyrie checks that the metadata file follows the required format, verifies that all POD detection files are complete and correctly paired, and links each file to the appropriate deployment.
 
-## Sample Data
-Sample data with which to test that your app is working properly has been added to the folder "SampleDeployments". This contains a selection of C-POD and F-POD files plus accompanying metadata. Please note that you must have large file storage (LFS) installed in order to download the POD files through your command line.
+Once processing begins, Valkyrie extracts detections from each CP1/CP3 or FP1/FP3 file pair and converts both the detections and the metadata into harmonized ETN‑compatible formats. The application outputs three files: deployment metadata, receiver metadata, and a combined detections dataset containing all processed deployments.
+
+## Metadata Requirements
+Before using Valkyrie, prepare a single metadata CSV file containing one row per deployment. The metadata must follow the Valkyrie metadata template, which includes separating timestamps into year, month, day, and time columns. A template is available in this repository to help you prepare the file (\SampleDeployment\VALKYRIE Sample Metadata - Blank.xlsm). Once completed, export the file to CSV format before uploading it to Valkyrie.
+
+## Uploading files
+Valkyrie accepts metadata and POD detection files for one ETN project at a time, but you may upload multiple deployments in a single session. Upload your raw POD detection files first. You can either select individual files or a folder; Valkyrie will automatically search through subfolders and detect valid file pairs.
+
+Once POD files are uploaded and validated, you can upload the metadata file. Valkyrie will validate all fields and report any issues.
+
+Each deployment must include both files in the pair: CP1 and CP3 for C‑PODs, or FP1 and FP3 for F‑PODs. Valkyrie will match these files to the corresponding deployment based on the metadata.
+
+## Processing and output
+When all files are uploaded, Valkyrie processes the data automatically. It extracts detections and converts everything into ETN‑standard formats.
+After processing is complete, Valkyrie produces three output files:
+
+1. A deployment metadata file containing harmonized information for the processed deployments
+2. A receiver metadata file with information about the POD units used
+3. A combined detections file containing all extracted detections from all uploaded deployments
+
+All output files are ready for direct ingestion into the ETN Underwater Acoustics database with no further formatting required.
+
+## Support
+For issues, feature requests, or bug reports, please open an issue in this repository.
+If you need additional help preparing metadata or understanding the ETN submission requirements, please consult the ETN documentation or contact the project maintainers.
 
 ## Progress
-The tool is under development. 
+The tool is under development in a collaboration between Aarhus University and VLIZ. 
+
+
