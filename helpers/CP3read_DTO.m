@@ -178,7 +178,7 @@ for currentminute=1:sum(minutebreaks)-1
         minutecounter = currentminute - 1; % for the following iterations use preceding currentminute to shift all minute data up 1 row
     end
 
-    minutes(currentminute).temperature=CP3_data(4,minuteindex(minutecounter))/25; % temp is row 4 - OBS: For some reason need to divide by 25 and NOT 5 as initially thought. Need to test on more data 
+    minutes(currentminute).temperature=CP3_data(4,minuteindex(minutecounter))/5; % temp is row 4 - OBS: Not entirely sure if /5 is correct for all data - seems to work for NOVANA data 
     minutes(currentminute).angle=acosd(1-CP3_data(5,minuteindex(minutecounter))/128); % angle is row 5
 
     % Get minute ON based on the evaluation protocol from Nick Treganza
