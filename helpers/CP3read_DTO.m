@@ -1,4 +1,4 @@
-function [minutes, trains]=CP3read_DTO(path,filename, n)
+function [minutes, trains]=CP3read_DTO_debug(path,filename, n)
 % [minutes, trains]=CP3read_DTO(filename, n)
 % Reads C-POD CP3-datafile
 % returns structures "minutes" with data arranged per minute and
@@ -9,7 +9,7 @@ function [minutes, trains]=CP3read_DTO(path,filename, n)
 % Variable n = '-n' includes Nall from CP1-file (if present)
 
 % Version 11th October 2024: error in decoding of click time stamps
-% corrected. Error in previous script amounts to less than 256 µs
+% corrected. Error in previous script amounts to less than 256 Âµs
 
 % Info from CP3-file is stored in two structures, minutes and trains.
 % Minutes-structure contains redordings minute by minute, also empty
@@ -84,7 +84,7 @@ function [minutes, trains]=CP3read_DTO(path,filename, n)
 % 18    Fmax in cluster  	Clstr params from Clstr selected
 % 19    nCycFused 	tcFrange bits in 7 LSB  NarrowBand in MSB
 % 20    cFav	Clstr params from Clstr selected
-% 21    PreICI    // expands  	Blank – preICI is still there but could be re-used
+% 21    PreICI    // expands  	Blank â€“ preICI is still there but could be re-used
 % 22    cPmin	Clstr params from Clstr selected
 % 23    cPmax	Clstr params from Clstr selected
 % 24    p0ClstrSts	NinTrain
@@ -125,7 +125,19 @@ starttime=((header(257)*256+header(258))*256+header(259))*256+header(260);
 starttimeCP3=datenum([1899 12 30 0 starttime 0]);
 %datebase = 1899-12-30 00:00
 CP3_data=fread(file,[40,inf]);
-CP3_data(:,CP3_data(40,:)==255)=[]; %delete end of file markers
+
+% Update: instead of removing any qolumns where row 40 has end of file
+% marker (255), then should remove all columns once a 255 is encounterd
+%CP3_data(:,CP3_data(40,:)==255)=[]; %delete end of file markers
+
+% Find the first occurrence of a 255 end-of-file marker
+eofIndex = find(CP3_data(40,:) == 255, 1, 'first');
+
+% If found, trim the data to only include columns BEFORE the 255
+if ~isempty(eofIndex)
+    CP3_data = CP3_data(:, 1:eofIndex-1);
+end
+
 fclose(file);
 
 if nargin>2 && strcmp('-n',n) % set nargin>1 if the path argument is removed
@@ -156,9 +168,8 @@ if ~noCP1
     minuteindexCP1=dummy(minutebreaksCP1);  %index to location of minutebreaks in data
 end
 
-minutebreaks=CP3_data(40,:)==254;       %lines with minutedata
-dummy=(1:length(CP3_data))';            %linenumber in raw data
-minuteindex=dummy(minutebreaks);        %index to location of minutebreaks in data
+minuteindex = find(CP3_data(40,:) == 254);        %index to location of minutebreaks in data
+minuteindex = [minuteindex(:); size(CP3_data, 2)]; % added to include the index for the final minute
 %% Read clicks minute by minute
 qualitylist={'Doubtful','Low','Medium','High'};
 specieslist={'NBHF','Dolphin','Unclass.','Sonar','HEL1'};
@@ -166,7 +177,7 @@ minutes=struct;
 trains=struct;
 trainno=1;
 noclicksinminute = true ;
-for currentminute=1:sum(minutebreaks)-1
+for currentminute=1:length(minuteindex) % changed to include all minutes in the data
     minutes(currentminute).time=starttimeCP3+(currentminute-1)/1440; % convert time to the right format
 
     % The values from the minute data is off by 1 - following will align
@@ -212,14 +223,39 @@ for currentminute=1:sum(minutebreaks)-1
         minutes(currentminute).minON = 1 ;
     end
 
-    % Evaluate if the current minute had clickinfo
-    if (currentminute ==1) & (minuteindex(currentminute) > 1)
-        noclicksinminute = false ;
-        clicksinminute=CP3_data(:,1:minuteindex(currentminute)-1); %all clickinfo in current minute CHANGED 19032025
-    elseif (currentminute ~= 1) & (minuteindex(currentminute-1)<minuteindex(currentminute)-1)   % if minute is not empty CHANGED 19032025
-        noclicksinminute = false ;
-        clicksinminute=CP3_data(:,minuteindex(currentminute-1)+1:minuteindex(currentminute)-1); %all clickinfo in current minute CHANGED 19032025
+    % % Evaluate if the current minute had clickinfo
+    % % Added a different way of getting click info for the final minute
+    % if (currentminute ==1) & (minuteindex(currentminute) > 1) % for the first minute
+    %     noclicksinminute = false ;
+    %     clicksinminute=CP3_data(:,1:minuteindex(currentminute)-1); %all clickinfo in current minute CHANGED 19032025
+    % elseif (currentminute ~= 1) & (minuteindex(currentminute-1)<minuteindex(currentminute)-1)   % if minute is not empty CHANGED 19032025
+    %     noclicksinminute = false ;
+    %     clicksinminute=CP3_data(:,minuteindex(currentminute-1)+1:minuteindex(currentminute)-1); %all clickinfo in current minute CHANGED 19032025
+    % end
+
+
+    % Determine left and right boundaries for click extraction
+    if currentminute == 1
+        left = 1;
+    else
+        left = minuteindex(currentminute) + 1;
     end
+
+    if currentminute == length(minuteindex)
+        right = minuteindex(currentminute);
+    else 
+        right = minuteindex(currentminute+1)-1;
+    end
+    
+
+    % Extract clicks if any exist in this range
+    if left <= right
+        noclicksinminute = false;
+        clicksinminute = CP3_data(:, left:right);
+    else
+        noclicksinminute = true;
+    end
+
 
     if ~noclicksinminute    
         trainID=clicksinminute(40,:); % column 40 has the train ID in it
@@ -323,8 +359,23 @@ for currentminute=1:sum(minutebreaks)-1
         minutes(currentminute).clickAll=0;
     end
     if ~noCP1   %Get nall from CP1-file, if present
-        if minuteindexCP1(currentminute+1)>minuteindexCP1(currentminute)+1   %CP1 minute not empty
-            clicksinminute=CP1_data(:,minuteindexCP1(currentminute)+1:minuteindexCP1(currentminute+1)-1); %all clickinfo in current minute
+
+        % Update: specify the left and right boundaries between which the
+        % nall clicks are counted. This is different than for cp3 data as
+        % it otherwise does not match. Here clicks are counted following a
+        % minute marker instead of preceeding a minute marker.
+
+        left = minuteindexCP1(currentminute) + 1;
+
+        if currentminute == length(minuteindexCP1)
+            right = length(CP1_data);
+        else
+            right = minuteindexCP1(currentminute+1)-1;
+        end
+
+        % Extract clicks if any exist in this range
+        if left <= right
+            clicksinminute = CP1_data(:, left:right);
             minutes(currentminute).nall=size(clicksinminute,2);
         else
             minutes(currentminute).nall=0;

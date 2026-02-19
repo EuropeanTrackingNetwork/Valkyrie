@@ -134,16 +134,17 @@ for i = 1:height(processTbl)
     metaIdx = processTbl.MetaRow(i);
 
     % Change the filename:
-    depID = metaForProcess.DeploymentID(metaIdx);
+    depID = MetaData.DeploymentID(metaIdx);
     ETN.FileName(:) = string(depID);
-
-    dep = metaForProcess.DEPLOY_DATE_TIME(metaIdx);
-    val = metaForProcess.VALID_DATA_UNTIL_DATE_TIME(metaIdx);
-
-    ETN.DETECTION_DATE_TIME.TimeZone = 'UTC'; % ensure same timezone as metadata
 
     % Find rows that have time in range of deploy and valid
     % data
+    dep = MetaData.DEPLOY_DATE_TIME(metaIdx);
+    val = MetaData.VALID_DATA_UNTIL_DATE_TIME(metaIdx);
+
+    ETN.DETECTION_DATE_TIME.TimeZone = 'UTC'; % ensure same timezone as metadata
+
+
     inRange = ETN.DETECTION_DATE_TIME >= dep & ETN.DETECTION_DATE_TIME <= val;
     ETN = ETN(inRange, :);
 
@@ -163,6 +164,11 @@ Receivers = createReceivers(MetaData,filtFiles);
 overview = makeFileOverview(filtFiles, MetaData,Detections,ProcessingStatus);
 
 % --- Save output files
+
+[baseFile, basePath] = uiputfile('*.csv', 'Save output files as');
+
+% Remove .csv extension if present
+[~, nameOnly] = fileparts(baseFile);
 
 % Keep only metadata rows (exclude file-only) AND with at least one match
 rowsMeta = ismember(MetaData.RowType, "metadata"); % has metadata

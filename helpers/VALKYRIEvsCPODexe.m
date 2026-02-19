@@ -27,7 +27,7 @@ disp(height(CPOD_output)-n_val);
 
 % Match the timestamps to check if all minutes have data
 % CPOD data has to combine the date and time columns:
-dtStr = string(CPOD_output{:,8}) + " " + string(CPOD_output{:,9});     % returns cell array of char
+dtStr = string(CPOD_output{:,2});     % returns cell array of char
 DT = datetime(dtStr, 'InputFormat', 'dd/MM/yyyy HH:mm');
 DT.Format = 'yyyy-MM-dd HH:mm:ss';  
 CPOD_output.DT = DT;
@@ -47,26 +47,25 @@ if missing_cpod>0
     % the position of the timestamps in the dataset
     missing_positions = find(ismissing(T.DETECTION_DATE_TIME));
     disp('Positions of missing CPOD timestamps:');
-    disp(missing_positions);
+    length(missing_positions);
 end
 if missing_valk > 0
     disp(['Missing Valkyrie timestamps: ', num2str(missing_valk)]);
     missing_positions = find(ismissing(T.DT));
     disp('Positions of missing CPOD timestamps:');
-    disp(missing_positions);
+    length(missing_positions);
 end
 
 
 % Check the number of Nall clicks in a minute
 
-cpod_Nall = CPOD_output.Var20;
-clean_str = extractBefore(string(cpod_Nall), ",");
-Nall = str2double(clean_str);
-CPOD_output.cpod_Nall = Nall;
-% Optional but often wanted: replace empty -> zero (no detections)
+cpod_Nall = CPOD_output.Nall_m;
+CPOD_output.cpod_Nall = cpod_Nall;
+% Replace empty -> zero (no detections)
 CPOD_output.cpod_Nall = fillmissing(CPOD_output.cpod_Nall, 'constant', 0);
 
 valk_Nall = groupsummary(valkyrie_output, 'DETECTION_DATE_TIME', 'sum', 'NUMBER_CLICKS_TOTAL');
+valk_Nall.sum_NUMBER_CLICKS_TOTAL = valk_Nall.sum_NUMBER_CLICKS_TOTAL/3;
 valk_Nall.Properties.VariableNames{'sum_NUMBER_CLICKS_TOTAL'} = 'Valkyrie_Nall';
 
 C = outerjoin(CPOD_output, valk_Nall, ...
