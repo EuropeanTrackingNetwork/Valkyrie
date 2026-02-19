@@ -1,4 +1,4 @@
-function [minutes, trains]=CP3read_DTO(path,filename, n)
+function [minutes, trains]=CP3read_DTO_old(path,filename, n)
 % [minutes, trains]=CP3read_DTO(filename, n)
 % Reads C-POD CP3-datafile
 % returns structures "minutes" with data arranged per minute and

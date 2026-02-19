@@ -27,7 +27,7 @@ disp(height(CPOD_output)-n_val);
 
 % Match the timestamps to check if all minutes have data
 % CPOD data has to combine the date and time columns:
-dtStr = string(CPOD_output{:,2});     % returns cell array of char
+dtStr = string(CPOD_output{:,'ChunkEnd'});     % returns cell array of char
 DT = datetime(dtStr, 'InputFormat', 'dd/MM/yyyy HH:mm');
 DT.Format = 'yyyy-MM-dd HH:mm:ss';  
 CPOD_output.DT = DT;
