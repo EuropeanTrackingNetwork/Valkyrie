@@ -119,7 +119,7 @@ for i = 1:height(processTbl)
         switch ext
             case '.CP3'
                 % Import CP3 (and CP1) file and convert to ETN format
-                tmpMinutes = CP3read_DTO(path,filename,n);
+                tmpMinutes = CP3read_DTO_debug(path,filename,n);
                 ETN = CP3read_2_etn(tmpMinutes);
             case '.FP3'
                 % Import FP3 (and FP1) file and convert to ETN
@@ -131,16 +131,19 @@ for i = 1:height(processTbl)
         continue; % SKip to next file
     end
 
-    % Change the filename column
-    depID = metaForProcess.DeploymentID(i);
+    metaIdx = processTbl.MetaRow(i);
+
+    % Change the filename:
+    depID = metaForProcess.DeploymentID(metaIdx);
     ETN.FileName(:) = string(depID);
 
-    %Set the timezone for ETN data (Detection date time column)
-    metaIdx = processTbl.MetaRow(i);
-    dep = MetaData.DEPLOY_DATE_TIME(metaIdx);
-    val = MetaData.VALID_DATA_UNTIL_DATE_TIME(metaIdx);
+    dep = metaForProcess.DEPLOY_DATE_TIME(metaIdx);
+    val = metaForProcess.VALID_DATA_UNTIL_DATE_TIME(metaIdx);
 
-    ETN.DETECTION_DATE_TIME.TimeZone = 'UTC';
+    ETN.DETECTION_DATE_TIME.TimeZone = 'UTC'; % ensure same timezone as metadata
+
+    % Find rows that have time in range of deploy and valid
+    % data
     inRange = ETN.DETECTION_DATE_TIME >= dep & ETN.DETECTION_DATE_TIME <= val;
     ETN = ETN(inRange, :);
 

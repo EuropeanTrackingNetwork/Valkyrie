@@ -1,0 +1,380 @@
+function [minutes, trains]=CP3read_DTO_debug(path,filename, n)
+% [minutes, trains]=CP3read_DTO(filename, n)
+% Reads C-POD CP3-datafile
+% returns structures "minutes" with data arranged per minute and
+% "trains" with data arranged in individual trains
+% Filename without extension or .'CP3'.
+% Requires both CP1 and CP3-files to be in the current directory in order
+% to compute noise level nall
+% Variable n = '-n' includes Nall from CP1-file (if present)
+
+% Version 11th October 2024: error in decoding of click time stamps
+% corrected. Error in previous script amounts to less than 256 µs
+
+% Info from CP3-file is stored in two structures, minutes and trains.
+% Minutes-structure contains redordings minute by minute, also empty
+% minutes.
+% minutes.time          : beginning of minute, in Matlab format
+% minutes.temperature   : in oC
+% minutes.angle         : degrees from vertical (hydrophone up
+% minutes.no_of_trains  : trains in minute
+% minutes.no_of_clicks  : clicks in minute
+% minutes.trainHi       : Trains classified as High probability
+% minutes.trainMed      : Trains classified as Medium probability
+% minutes.trainLow      : Trains classified as Low probability
+% minutes.trainAll      : Trains classified as Doubtful
+% minutes.clickHi       : clicks classified as High probability
+% minutes.clickMed      : clicks classified as Medium probability
+% minutes.clickLow      : clicks classified as Low probability
+% minutes.clickAll      : clicks classified as Doubtful
+% minutes.train.ID              : ID number of train. not unique
+% minutes.train.spclass         : 0=NBHF, 1= dolphin, 2=noSp, 3=sonar
+% minutes.train.species         : text
+% minutes.train.qualityclass    : 0=doubt, 1=low, 2=med, 3=hi
+% minutes.train.quality         : text
+% minutes.train.rategood        : Boolean, use unknown
+% minutes.train.speciesgood     : Boolean, use unknown
+% minutes.train.no_of_clicks    : clicks in train
+% minutes.train.time            : time of individual clicks, usecs after start of minute
+% minutes.train.ici             : Inter-click-interval, usec
+% minutes.train.cycles          : cycles in click
+% minutes.train.nix             : peak amplitude, uncalibrated unit (Nix-unit)
+% minutes.train.frq             : mean instantaneous frequency (kHz)
+% minutes.train.BW              : measure of variation in instantaneous frequency (kHz)
+% minutes.train.fend            : Instantaneous frequency at end of click
+
+% trains-structure contains the same information about individual trains as
+% the minutes-strucure, just organised by individual trains, rather than by
+% minute.
+
+% There is more information in the CP3-file, not all is extracted.
+
+% J. Tougaard, Aarhus University, May 2017
+
+
+% CP3-file structure (from Nick):
+% First 760 bytes: Header
+% Byte 257-260: Starttime in minutes from 1899-12-30 00:00, big-endian
+ 
+% Data bytes. Each click is stored in a 40-byte sequence. Every minute a 40
+% byte minute sequence is also stored.
+
+% Minute-sequence bytes:
+% Byte 4     Temperature     t=b/5 (oC)
+% Byte 5     Angle sensor    a=acos(1-b/128)
+% Byte 21    always 20
+% Byte 40    always 254 (indicates minute sequence end)
+
+%Click- sequences 
+% 1-3   time stamp: steps of 0.2 micro-s from start of current minute, big-endian,
+% 4     cycles
+% 5     bandwidth
+% 6     Frequency
+% 7     End-frequency
+% 8     Max. amplitude (Nix)
+% 9     Envelope 2 vals	Click params
+% 10	BandKhz, if in a band, otherwise 0	Clstr params from Clstr selected
+% 11    NinClstr	Clstr params from Clstr selected
+% 12    Dur/slope      // expands	Clstr params from Clstr selected
+% 13    UPsteps  + nFusedCls in 3 MSB	Clstr params from Clstr selected
+% 14    cSlope	Clstr params from Clstr selected
+% 15    MxCycDvSPL0  highest value of (Ncyc* 32 / SPL)	Clstr params from Clstr selected
+% 16    nBW0, 2bits, BW1 3bits, BW2 3bits	Clstr params from Clstr selected
+% 17    Fmin in cluster	Clstr params from Clstr selected
+% 18    Fmax in cluster  	Clstr params from Clstr selected
+% 19    nCycFused 	tcFrange bits in 7 LSB  NarrowBand in MSB
+% 20    cFav	Clstr params from Clstr selected
+% 21    PreICI    // expands  	Blank – preICI is still there but could be re-used
+% 22    cPmin	Clstr params from Clstr selected
+% 23    cPmax	Clstr params from Clstr selected
+% 24    p0ClstrSts	NinTrain
+% 25    NinClstr	avF
+% 26    Dur/slope      // expands	avPRF msb
+% 27    UPsteps   + FusedCyc in 3 MSB	avPRF lsb
+% 28    cSlope 	GdID[1]
+% 29    MxCycDvSPL1  highest value of (Ncyc* 32 / SPL)	GdID[2]   
+% 30    nBW0, 2bits, BW1 3bits, BW2 3bits	GdID[3]       
+% 31    Fmin	GdID[4] 
+% 32    Fmax  higher frequency of two loudest clicks if both above 50	
+% 33    Fdiff	
+% 34    cFav
+% 35    PreICI    // expands  	WUTrisk 2LSB    Marked = MSB         
+% 36    cPmin 	BandN bits 0..2   Preceding gap = MSB 
+% 37    cPmax	Qclass / RateQ /  SpQ / SpClass
+%       Qn:=b and 3         ; 0=doubt, 1=low, 2=med, 3=hi
+%       RateGood:=Boolean(b and 4 shr 2)  ;   // Sp good
+%       SpGood:=Boolean(b and 8 shr 3)  ;   // rate good
+%       SpClass:=tSpClass(b and 240 shr 4); 0=NBHF, 1= dolphin, 2=noSp, 3=sonar
+% 38    p1ClstrSts	TrainSpN
+% 39    BandN	EncSpN
+% 40    NrType. Train ID. Running number within each minute. Always <254
+%       for click records. 254 indicate minute record, 255 indicate end of file. 
+
+% Troubleshooting: 
+% [files, path] = uigetfile('*.*', 'MultiSelect','on') ; % select files to
+% load and test the script on
+% filename = files{1} ; % get filename of selected file
+   
+if strcmp('.CP3',filename(end-3:end)) || strcmp('.cp3',filename(end-3:end))
+    filename=filename(1:end-4);     %remove extension
+end
+%file=fopen([filename,'.CP3']);
+file = fopen([path,'\', filename, '.CP3']) ; % include path as argument 
+header=fread(file,760);
+starttime=((header(257)*256+header(258))*256+header(259))*256+header(260);
+starttimeCP3=datenum([1899 12 30 0 starttime 0]);
+%datebase = 1899-12-30 00:00
+CP3_data=fread(file,[40,inf]);
+CP3_data(:,CP3_data(40,:)==255)=[]; %delete end of file markers
+fclose(file);
+
+if nargin>2 && strcmp('-n',n) % set nargin>1 if the path argument is removed
+    try     %Read CP1-file, if present
+        file = fopen([path,'\', filename, '.CP1']);
+        %file=fopen([filename,'.CP1']);
+        noCP1=false;
+    catch
+        disp('CP1-file not found!');
+        noCP1=true;
+    end
+else
+    noCP1=true;
+end
+if ~noCP1
+    fread(file,360);    %header
+    CP1_data=fread(file,[10,inf]);
+    CP1_data(:,CP1_data(10,:)==255)=[]; %delete end of file markers
+    fclose(file);
+end
+
+%% Find minute-recordings
+% CP1 data has a column for each minute data and in row 10 is the indicator
+% for if this is minute data (254)
+if ~noCP1
+    minutebreaksCP1=CP1_data(10,:)==254;    %lines with minutedata - not all columns have a minutebreak and the data is the columns in betweeen the minute breaks
+    dummy=(1:length(CP1_data))';            %linenumber in raw data
+    minuteindexCP1=dummy(minutebreaksCP1);  %index to location of minutebreaks in data
+end
+
+minuteindex = find(CP3_data(40,:) == 254);        %index to location of minutebreaks in data
+minuteindex = [minuteindex(:); size(CP3_data, 2)]; % added to include the index for the final minute
+%% Read clicks minute by minute
+qualitylist={'Doubtful','Low','Medium','High'};
+specieslist={'NBHF','Dolphin','Unclass.','Sonar','HEL1'};
+minutes=struct;
+trains=struct;
+trainno=1;
+noclicksinminute = true ;
+for currentminute=1:length(minuteindex) % changed to include all minutes in the data
+    minutes(currentminute).time=starttimeCP3+(currentminute-1)/1440; % convert time to the right format
+
+    % The values from the minute data is off by 1 - following will align
+    % time and minute data. Need to look at minute data for the previous
+    % minuteindex to match the time and click data.
+    if currentminute == 1
+        minutecounter = currentminute; % for the first iteration use the currentminute
+    else
+        minutecounter = currentminute - 1; % for the following iterations use preceding currentminute to shift all minute data up 1 row
+    end
+
+    minutes(currentminute).temperature=CP3_data(4,minuteindex(minutecounter))/5; % temp is row 4 - OBS: Not entirely sure if /5 is correct for all data - seems to work for NOVANA data 
+    minutes(currentminute).angle=acosd(1-CP3_data(5,minuteindex(minutecounter))/128); % angle is row 5
+
+    % Get minute ON based on the evaluation protocol from Nick Treganza
+    % (March 2025):
+
+    % Get the switch settings from the header: % ADDED 02042025
+    % minutes(currentminute).SwitchNmin = header(65); % Mia: I think these
+    % switch values are related to the numeric value recorded for angle
+    % (not the calculated angle degree). And then Nick says that the CPOD
+    % evaluates if the recorded AngleN is either larger than the max value
+    % it is set to (fx 110) or if it is smaller than the minimum value it
+    % is set to (fx 0). Importantly, these switch values may be something a
+    % user can change and therefore the minON indicator is not necessarily
+    % comparable and there could be more false negatives in some datasets
+    % than others - however, the overwrite of if there is clicks registered
+    % will mean that it was always on if clicks were registered.
+
+    % minutes(currentminute).SwitchNmin = header(65);
+    % minutes(currentminute).SwitchNmax = header(66);
+    % minutes(currentminute).AngleN = CP3_data(5,minuteindex(minutecounter));
+    % minutes(currentminute).rawClxInMin = CP3_data(9,minuteindex(minutecounter));
+
+    if (CP3_data(5,minuteindex(minutecounter)) > header(66) || CP3_data(5,minuteindex(minutecounter)) < header(65))
+        minutes(currentminute).minON = 0 ;
+    else
+        minutes(currentminute).minON = 1 ;
+    end
+
+    % Pick up false OFF when a click was logged 
+    if (CP3_data(9,minuteindex(minutecounter)) > 0)
+        minutes(currentminute).minON = 1 ;
+    end
+
+    % % Evaluate if the current minute had clickinfo
+    % % Added a different way of getting click info for the final minute
+    % if (currentminute ==1) & (minuteindex(currentminute) > 1) % for the first minute
+    %     noclicksinminute = false ;
+    %     clicksinminute=CP3_data(:,1:minuteindex(currentminute)-1); %all clickinfo in current minute CHANGED 19032025
+    % elseif (currentminute ~= 1) & (minuteindex(currentminute-1)<minuteindex(currentminute)-1)   % if minute is not empty CHANGED 19032025
+    %     noclicksinminute = false ;
+    %     clicksinminute=CP3_data(:,minuteindex(currentminute-1)+1:minuteindex(currentminute)-1); %all clickinfo in current minute CHANGED 19032025
+    % end
+
+
+    % Determine left and right boundaries for click extraction
+    if currentminute == 1
+        left = 1;
+    else
+        left = minuteindex(currentminute-1) + 1;
+    end
+
+    if currentminute == length(minuteindex)
+        right = minuteindex(currentminute);
+    else 
+        right = minuteindex(currentminute)-1;
+    end
+    
+
+    % Extract clicks if any exist in this range
+    if left <= right
+        noclicksinminute = false;
+        clicksinminute = CP3_data(:, left:right);
+    else
+        noclicksinminute = true;
+    end
+
+
+    if ~noclicksinminute    
+        trainID=clicksinminute(40,:); % column 40 has the train ID in it
+        trainIDlist=unique(trainID); % all the unique train IDs
+        minutes(currentminute).no_of_trains=length(trainIDlist); % how many unique trains = # of trains in minute
+        minutes(currentminute).no_of_clicks=size(clicksinminute,2); % how many clicks within clicksinminute, known by how many columns    
+        for n=1:length(trainIDlist) % for each train
+            minutes(currentminute).train(n).ID=trainIDlist(n); %the train we are looking at, put into the minutes form
+            trains(trainno).ID=trainIDlist(n); % same but for train form
+            dummy=clicksinminute(37,trainID==trainIDlist(n)); %row 37 holds a lot of into (see at top of script). From this variable (dummy) many of the categorical variables can be extracted using some bitshifting
+            
+            % Species class
+            minutes(currentminute).train(n).spclass=bitshift(bitand(dummy(1),240),-4); % bitshift to get species class for the minute
+            trains(trainno).spclass=bitshift(bitand(dummy(1),240),-4); % bitshift to get the species class for the train
+            minutes(currentminute).train(n).species=specieslist(trains(trainno).spclass+1); % match up spclass code with list of species 
+            trains(trainno).species=specieslist(trains(trainno).spclass+1); % match up spclass code with list of species 
+           
+            % quality class
+            minutes(currentminute).train(n).qualityclass=bitand(dummy(1),3); % Use some bitand function to extract the quality class for minute
+            trains(trainno).qualityclass=bitand(dummy(1),3); % Get quality class for train
+            minutes(currentminute).train(n).quality=qualitylist(trains(trainno).qualityclass+1); % match up qualityclass code with list of qualities 
+            trains(trainno).quality=qualitylist(trains(trainno).qualityclass+1);% match up qualityclass code with list of qualities 
+           
+            % Rate good? (boolean)
+            minutes(currentminute).train(n).rategood=bitshift(bitand(dummy(1),4),-2); % Use bitshifting to get the rate good category for minute
+            trains(trainno).rategood=bitshift(bitand(dummy(1),4),-2); % Use bitshifting to get the rate good category for train
+            
+            % species good (boolean)
+            minutes(currentminute).train(n).speciesgood=bitshift(bitand(dummy(1),8),-3); % Use bitshifting to get the species good category for minute
+            trains(trainno).speciesgood=bitshift(bitand(dummy(1),8),-8); % Use bitshifting to get the species good category for train
+
+            % Number of clicks in train
+            minutes(currentminute).train(n).no_of_clicks=sum(trainID==trainIDlist(n)); 
+            trains(trainno).no_of_clicks=sum(trainID==trainIDlist(n));
+
+            % Date and time of current minute
+            trains(trainno).minute=starttimeCP3+minutecounter/1440;
+
+            % time
+            minutes(currentminute).train(n).time=5*(((clicksinminute(1,trainID==trainIDlist(n))*256 ...
+                +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n)));
+            trains(trainno).time=5*(((clicksinminute(1,trainID==trainIDlist(n))*256 ...
+                +clicksinminute(2,trainID==trainIDlist(n)))*256)+clicksinminute(3,trainID==trainIDlist(n)));
+            minutes(currentminute).train(n).ici=diff([minutes(currentminute).train(n).time]);
+            trains(trainno).ici=diff([minutes(currentminute).train(n).time]);
+
+            % cycles
+            minutes(currentminute).train(n).cycles=clicksinminute(4,trainID==trainIDlist(n));
+            trains(trainno).cycles=clicksinminute(4,trainID==trainIDlist(n));
+
+            % amplitude (nix)
+            minutes(currentminute).train(n).nix=clicksinminute(8,trainID==trainIDlist(n));
+            trains(trainno).nix=clicksinminute(8,trainID==trainIDlist(n));
+
+            % frequency
+            minutes(currentminute).train(n).frq=clicksinminute(6,trainID==trainIDlist(n));
+            trains(trainno).frq=clicksinminute(6,trainID==trainIDlist(n));
+
+            % bandwidth
+            minutes(currentminute).train(n).BW=clicksinminute(5,trainID==trainIDlist(n));
+            trains(trainno).BW=clicksinminute(5,trainID==trainIDlist(n));
+
+            %f-end
+            minutes(currentminute).train(n).fend=clicksinminute(7,trainID==trainIDlist(n));
+            trains(trainno).fend=clicksinminute(7,trainID==trainIDlist(n));
+            trainno=trainno+1;
+        end
+        
+        minutes(currentminute).trainHi=sum([minutes(currentminute).train.spclass]==0'&...
+            [minutes(currentminute).train.qualityclass]==3);
+        minutes(currentminute).trainMed=sum([minutes(currentminute).train.spclass]==0'&...
+            [minutes(currentminute).train.qualityclass]==2);
+        minutes(currentminute).trainLow=sum([minutes(currentminute).train.spclass]==0'&...
+            [minutes(currentminute).train.qualityclass]==1);
+        minutes(currentminute).trainAll=sum([minutes(currentminute).train.spclass]==0'&...
+            [minutes(currentminute).train.qualityclass]==0);
+        
+        minutes(currentminute).clickHi=sum([minutes(currentminute).train(...
+            [minutes(currentminute).train.spclass]'==0&...
+            [minutes(currentminute).train.qualityclass]'==3).no_of_clicks]);
+        minutes(currentminute).clickMed=sum([minutes(currentminute).train(...
+            [minutes(currentminute).train.spclass]'==0&...
+            [minutes(currentminute).train.qualityclass]'==2).no_of_clicks]);
+        minutes(currentminute).clickLow=sum([minutes(currentminute).train(...
+            [minutes(currentminute).train.spclass]'==0&...
+            [minutes(currentminute).train.qualityclass]'==1).no_of_clicks]);
+        minutes(currentminute).clickAll=sum([minutes(currentminute).train(...
+            [minutes(currentminute).train.spclass]'==0&...
+            [minutes(currentminute).train.qualityclass]'==0).no_of_clicks]);
+
+    else    % No clicks in minute, set all variables to zero
+        minutes(currentminute).no_of_trains=0;
+        minutes(currentminute).no_of_clicks=0;
+        minutes(currentminute).trainHi=0;
+        minutes(currentminute).trainMed=0;
+        minutes(currentminute).trainLow=0;
+        minutes(currentminute).trainAll=0;
+        minutes(currentminute).clickHi=0;
+        minutes(currentminute).clickMed=0;
+        minutes(currentminute).clickLow=0;
+        minutes(currentminute).clickAll=0;
+    end
+    if ~noCP1   %Get nall from CP1-file, if present
+
+        % Update: specify the left and right boundaries between which the
+        % nall clicks are counted. This is different than for cp3 data as
+        % it otherwise does not match. Here clicks are counted following a
+        % minute marker instead of preceeding a minute marker.
+
+        left = minuteindexCP1(currentminute) + 1;
+
+
+        if currentminute == length(minuteindexCP1)
+            right = length(CP1_data);
+        else
+            right = minuteindexCP1(currentminute+1)-1;
+        end
+
+
+        % Extract clicks if any exist in this range
+        if left <= right
+            clicksinminute = CP1_data(:, left:right);
+            minutes(currentminute).nall=size(clicksinminute,2);
+
+        else
+            minutes(currentminute).nall=0;
+        end
+    end
+    noclicksinminute = true ;
+end
+
+%add in the file name where detections came from
+[minutes.filename] = deal(filename) ;
+[trains.filename] = deal(filename) ;
