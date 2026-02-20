@@ -48,10 +48,10 @@ for p = prefixes(:).'
 
     else
         % Build date-only (no time)
-        dateStrings = y + "-" + m + "-" + d;
+        dateStrings = y + "-" + m + "-" + d + "T00:00:00Z";
         outVar = p + "DATE";
 
-        dateTime = datetime(dateStrings, "Format", "yyyy-MM-dd","TimeZone","UTC");
+        dateTime = datetime(dateStrings, "Format", "yyyy-MM-dd'T'HH:mm:ss'Z'","TimeZone","UTC");
 
 
         tbl(:, [yearVar, monthVar, dayVar]) = []; % remove expanded columns

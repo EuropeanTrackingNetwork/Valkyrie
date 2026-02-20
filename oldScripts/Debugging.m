@@ -135,7 +135,7 @@ for i = 1:height(processTbl)
 
     % Change the filename:
     depID = MetaData.DeploymentID(metaIdx);
-    ETN.FileName(:) = string(depID);
+    ETN.filename(:) = string(depID);
 
     % Find rows that have time in range of deploy and valid
     % data

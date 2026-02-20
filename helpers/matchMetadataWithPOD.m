@@ -118,10 +118,15 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
             % Extract date (support underscores/dashes/spaces)
             % Looks for YYYY MM DD in a flexible way: 2024_09_05 or 2024-09-05 or 2024 09 05
             % OBS: this will cause a mistake for names like this: 'CPOD1686 2011 11 09 POD1686 file01.CP3'
-            tokens = regexp(name, '(?<!\w)(\d{4})\s+(\d{2})\s+(\d{2})(?!\w)', 'tokens'); %THIS IS THE PROBLEM
+            tokens = regexp(name, '(?<!\w)(\d{4})\s+(\d{2})\s+(\d{2})(?!\w)', 'tokens');
             if isempty(tokens), continue; end
             dateStr = strjoin(tokens{1}, '');
             fileDate = datetime(dateStr, 'InputFormat', 'yyyyMMdd');  % timezone-less
+
+
+            % String for deploymentId (exactly "YYYY MM DD")
+            dateForId = sprintf('%s %s %s',tokens{1}{1},tokens{1}{2},tokens{1}{3});
+
 
             % Check POD ID match (support CPOD/FPOD naming)
             % Examples: "...POD123..." or "...FPOD_123..."
@@ -136,13 +141,13 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
             % Base the range on whether filename has the deployment or the
             % activation date
             if fileDay >= startDayact && fileDay < startDaydep && fileDay < endDay
-                deploymentId(i) = station + "_" + tsAct + "_" + receiverDigits; 
+                deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits; 
                 inRange = true;
             elseif fileDay >= startDaydep && fileDay > startDayact && fileDay < endDay
-                deploymentId(i) = station + "_" + tsDep + "_" + receiverDigits; 
+                deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits; 
                 inRange = true;
             else
-                deploymentId(i) = station + "_" + tsAct + "_" + receiverDigits;
+                deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits;
                 inRange = false;
             end
 

@@ -169,7 +169,9 @@ if ~noCP1
 end
 
 minuteindex = find(CP3_data(40,:) == 254);        %index to location of minutebreaks in data
-minuteindex = [minuteindex(:); size(CP3_data, 2)]; % added to include the index for the final minute
+if length(minuteindex) < length(minuteindexCP1)
+    minuteindex = [minuteindex(:); size(CP3_data, 2)]; % added to include the index for the final minute
+end
 %% Read clicks minute by minute
 qualitylist={'Doubtful','Low','Medium','High'};
 specieslist={'NBHF','Dolphin','Unclass.','Sonar','HEL1'};
@@ -185,42 +187,44 @@ for currentminute=1:length(minuteindex) % changed to include all minutes in the 
     % minuteindex to match the time and click data.
     if currentminute == 1
         minutecounter = currentminute; % for the first iteration use the currentminute
+        minutes(currentminute).temperature=0; % temp is row 4 - OBS: Not entirely sure if /5 is correct for all data - seems to work for NOVANA data
+        minutes(currentminute).angle=0; % angle is row 5
+        minutes(currentminute).minON = 0;
+
     else
         minutecounter = currentminute - 1; % for the following iterations use preceding currentminute to shift all minute data up 1 row
-    end
+        minutes(currentminute).temperature=CP3_data(4,minuteindex(minutecounter))/5; % temp is row 4 - OBS: Not entirely sure if /5 is correct for all data - seems to work for NOVANA data
+        minutes(currentminute).angle=acosd(1-CP3_data(5,minuteindex(minutecounter))/128); % angle is row 5
 
-    minutes(currentminute).temperature=CP3_data(4,minuteindex(minutecounter))/5; % temp is row 4 - OBS: Not entirely sure if /5 is correct for all data - seems to work for NOVANA data 
-    minutes(currentminute).angle=acosd(1-CP3_data(5,minuteindex(minutecounter))/128); % angle is row 5
+        % Get minute ON based on the evaluation protocol from Nick Treganza
+        % (March 2025):
 
-    % Get minute ON based on the evaluation protocol from Nick Treganza
-    % (March 2025):
+        % Get the switch settings from the header: % ADDED 02042025
+        % minutes(currentminute).SwitchNmin = header(65); % Mia: I think these
+        % switch values are related to the numeric value recorded for angle
+        % (not the calculated angle degree). And then Nick says that the CPOD
+        % evaluates if the recorded AngleN is either larger than the max value
+        % it is set to (fx 110) or if it is smaller than the minimum value it
+        % is set to (fx 0). Importantly, these switch values may be something a
+        % user can change and therefore the minON indicator is not necessarily
+        % comparable and there could be more false negatives in some datasets
+        % than others - however, the overwrite of if there is clicks registered
+        % will mean that it was always on if clicks were registered.
 
-    % Get the switch settings from the header: % ADDED 02042025
-    % minutes(currentminute).SwitchNmin = header(65); % Mia: I think these
-    % switch values are related to the numeric value recorded for angle
-    % (not the calculated angle degree). And then Nick says that the CPOD
-    % evaluates if the recorded AngleN is either larger than the max value
-    % it is set to (fx 110) or if it is smaller than the minimum value it
-    % is set to (fx 0). Importantly, these switch values may be something a
-    % user can change and therefore the minON indicator is not necessarily
-    % comparable and there could be more false negatives in some datasets
-    % than others - however, the overwrite of if there is clicks registered
-    % will mean that it was always on if clicks were registered.
+        % minutes(currentminute).SwitchNmin = header(65);
+        % minutes(currentminute).SwitchNmax = header(66);
+        % minutes(currentminute).AngleN = CP3_data(5,minuteindex(minutecounter));
+        % minutes(currentminute).rawClxInMin = CP3_data(9,minuteindex(minutecounter));
+        if (CP3_data(5,minuteindex(minutecounter)) > header(66) || CP3_data(5,minuteindex(minutecounter)) < header(65))
+            minutes(currentminute).minON = 0 ;
+        else
+            minutes(currentminute).minON = 1 ;
+        end
 
-    % minutes(currentminute).SwitchNmin = header(65);
-    % minutes(currentminute).SwitchNmax = header(66);
-    % minutes(currentminute).AngleN = CP3_data(5,minuteindex(minutecounter));
-    % minutes(currentminute).rawClxInMin = CP3_data(9,minuteindex(minutecounter));
-
-    if (CP3_data(5,minuteindex(minutecounter)) > header(66) || CP3_data(5,minuteindex(minutecounter)) < header(65))
-        minutes(currentminute).minON = 0 ;
-    else
-        minutes(currentminute).minON = 1 ;
-    end
-
-    % Pick up false OFF when a click was logged 
-    if (CP3_data(9,minuteindex(minutecounter)) > 0)
-        minutes(currentminute).minON = 1 ;
+        % Pick up false OFF when a click was logged
+        if (CP3_data(9,minuteindex(minutecounter)) > 0)
+            minutes(currentminute).minON = 1 ;
+        end
     end
 
     % % Evaluate if the current minute had clickinfo
@@ -236,26 +240,18 @@ for currentminute=1:length(minuteindex) % changed to include all minutes in the 
 
     % Determine left and right boundaries for click extraction
     if currentminute == 1
-        left = 1;
+        noclicksinminute = true; % first minute always empty/partial minute
     else
-        left = minuteindex(currentminute) + 1;
-    end
+        left = minuteindex(currentminute-1) + 1;    %The minute left of click data
+        right = minuteindex(currentminute) - 1;     % The minute right of the click data
 
-    if currentminute == length(minuteindex)
-        right = minuteindex(currentminute);
-    else 
-        right = minuteindex(currentminute+1)-1;
+        if left <= right
+            noclicksinminute = false;
+            clicksinminute = CP3_data(:,left:right);
+        else
+            noclicksinminute = true;
+        end
     end
-    
-
-    % Extract clicks if any exist in this range
-    if left <= right
-        noclicksinminute = false;
-        clicksinminute = CP3_data(:, left:right);
-    else
-        noclicksinminute = true;
-    end
-
 
     if ~noclicksinminute    
         trainID=clicksinminute(40,:); % column 40 has the train ID in it
@@ -292,7 +288,7 @@ for currentminute=1:length(minuteindex) % changed to include all minutes in the 
             trains(trainno).no_of_clicks=sum(trainID==trainIDlist(n));
 
             % Date and time of current minute
-            trains(trainno).minute=starttimeCP3+minutecounter/1440;
+            trains(trainno).minute=minutes(currentminute).time;
 
             % time
             minutes(currentminute).train(n).time=5*(((clicksinminute(1,trainID==trainIDlist(n))*256 ...
