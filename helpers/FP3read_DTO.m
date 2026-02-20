@@ -238,17 +238,9 @@ for currentminute=1:sum(minutebreaks)-1
             % Date and time of current minute
             trains(trainno).minute=starttimeFP3+currentminute/1440;
             % Time of each click in the train
-
-            % OLD
-            %minutes(currentminute).train(n).time = 2*(((clickdata(trainID==trainIDlist(n),1)*256 ... % multiply by 2 bc it is 0.5 ms chunks instead of 0.2 now
-            %     +clickdata(trainID==trainIDlist(n),2))*256) + clickdata(trainID==trainIDlist(n),3));
-            %trains(trainno).time = 2*(((clickdata(trainID==trainIDlist(n),1)*256 ... 
-            %     +clickdata(trainID==trainIDlist(n),2))*256) + clickdata(trainID==trainIDlist(n),3));
-
-            % NEW
-            minutes(currentminute).train(n).time = 2*(((double(clickdata(trainID==trainIDlist(n),1))*256 ... % REALLY NOT SURE ABOUT THIS MULTIPLICATION FACTOR
+            minutes(currentminute).train(n).time = 5*(((double(clickdata(trainID==trainIDlist(n),1))*256 ... % REALLY NOT SURE ABOUT THIS MULTIPLICATION FACTOR
                 + double(clickdata(trainID==trainIDlist(n),2)))*256) + double(clickdata(trainID==trainIDlist(n),3)));
-            trains(trainno).time = 2*(((double(clickdata(trainID==trainIDlist(n),1))*256 ...
+            trains(trainno).time = 5*(((double(clickdata(trainID==trainIDlist(n),1))*256 ...
                 + double(clickdata(trainID==trainIDlist(n),2)))*256) + double(clickdata(trainID==trainIDlist(n),3)));
 
             minutes(currentminute).train(n).ici=diff([minutes(currentminute).train(n).time]);

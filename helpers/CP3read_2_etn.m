@@ -58,8 +58,8 @@ ETN.angle = round([ETN.angle]);
 % change quality to names
 ETN.quality = categorical(ETN.quality, [1 2 3], {'Lo', 'Mod', 'Hi'});
 
-% change units from 0.2 microsecond steps to milliseconds
-ETN.milliseconds = round(ETN.milliseconds*0.0002) ; %no decimal ms
+% change units from microsecond steps to milliseconds
+ETN.milliseconds = round(ETN.milliseconds*0.001) ; %no decimal ms
 
 % lost minutes
 ETN.lost_minutes = double(ETN.nall > 4096) ;
