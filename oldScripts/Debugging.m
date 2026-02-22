@@ -119,7 +119,7 @@ for i = 1:height(processTbl)
         switch ext
             case '.CP3'
                 % Import CP3 (and CP1) file and convert to ETN format
-                tmpMinutes = CP3read_DTO_debug(path,filename,n);
+                tmpMinutes = CP3read_DTO(path,filename,n);
                 ETN = CP3read_2_etn(tmpMinutes);
             case '.FP3'
                 % Import FP3 (and FP1) file and convert to ETN
@@ -133,9 +133,19 @@ for i = 1:height(processTbl)
 
     metaIdx = processTbl.MetaRow(i);
 
+    disp(metaIdx); %DEBUG
+
+    disp(MetaData.DeploymentID); %DEBUG
+
+    % Move filename to PODfile (last column that will be good
+    % for user to have but deleted once going into ETN):
+    ETN.PODfile = string(ETN.filename);
+    disp(height(ETN.PODfile)); %DEBUG
+
     % Change the filename:
-    depID = MetaData.DeploymentID(metaIdx);
-    ETN.filename(:) = string(depID);
+    depID = string(MetaData.DeploymentID(metaIdx));
+    ETN = convertvars(ETN, "filename", "string");
+    ETN.filename(:) = depID;
 
     % Find rows that have time in range of deploy and valid
     % data

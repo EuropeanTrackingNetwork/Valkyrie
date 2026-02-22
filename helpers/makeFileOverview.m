@@ -46,15 +46,15 @@ for i = 1:n
 end
 
 % Add detection span
-if ~isempty(detections) && ismember('filename', detections.Properties.VariableNames)
+if ~isempty(detections) && ismember('PODfile', detections.Properties.VariableNames)
     detections.DETECTION_DATE_TIME = datetime(detections.DETECTION_DATE_TIME);
-    detSummary = groupsummary(detections, 'filename', {'min','max'}, 'DETECTION_DATE_TIME');
+    detSummary = groupsummary(detections, 'PODfile', {'min','max'}, 'DETECTION_DATE_TIME');
     detSummary.Duration = detSummary.max_DETECTION_DATE_TIME - detSummary.min_DETECTION_DATE_TIME;
 
     for i = 1:n
         % strip extension (.FP3 or .CP3) to match filenames
         baseName = erase(overview.Filename(i), {'.FP3','.CP3'});
-        fIdx = strcmp(detSummary.filename, baseName);
+        fIdx = strcmp(detSummary.PODfile, baseName);
         if any(fIdx)
             dur = detSummary.Duration(fIdx);
             overview.DetectionSpan(i) = formatDuration(dur);
