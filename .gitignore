@@ -11,4 +11,14 @@ VLIZ_sampleDeployments/
 underDevelopment/
 release/
 resources/
+VALKYRIEapp/
 
+# Ignore .zip archives
+*.zip
+
+# Ignore project file
+*.prj
+
+# Ignore installer files
+*.exe
+*.msi
