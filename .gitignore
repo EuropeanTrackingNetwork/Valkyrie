@@ -17,7 +17,7 @@ VALKYRIEapp/
 *.zip
 
 # Ignore project file
-*.prj~
+*.prj
 *.mlproj
 
 # Ignore installer files
