@@ -1,7 +1,15 @@
-# Valkyrie - Data Harmonization Tool for C-POD and F-POD data
+
+
+# VALKYRIE
 
 Valkyrie is a tool developed within the DTO BioFlow project (https://dto-bioflow.eu/) to harmonize metadata and porpoise detection data from C‑PODs and F‑PODs. It takes raw detection files (CP1/CP3 or FP1/FP3 pairs) together with standardized deployment metadata and produces ETN‑ready output files that can be uploaded directly to the ETN Underwater Acoustics database.
 Valkyrie validates metadata, matches POD detection files to deployments, extracts detections from raw files, and formats all outputs according to ETN requirements.
+
+## Installation
+VALKYRIE can be installed from
+
+
+
 
 ## Overview
 Valkyrie provides an automated workflow for preparing POD datasets for ingestion into ETN. After registering as an ETN user and obtaining a project number, users can upload one metadata CSV file and the raw POD detection files for their deployments. Valkyrie checks that the metadata file follows the required format, verifies that all POD detection files are complete and correctly paired, and links each file to the appropriate deployment.
