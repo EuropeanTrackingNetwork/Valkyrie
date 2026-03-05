@@ -20,7 +20,7 @@ for p = prefixes(:).'
 
     % If any of these columns are missing from tbl, skip it-- handles optional columns
     if ~all(ismember([yearVar, monthVar, dayVar], tbl.Properties.VariableNames))
-        continue 
+        continue
     end
 
     % extract strings and zero‑pad MONTH, DAY
@@ -33,11 +33,21 @@ for p = prefixes(:).'
     if hasTime
         % Pad time when present
         t_raw = string(tbl.(timeVar));
-        hourToken = extractBefore(t_raw, ":"); % Get everything before the first ":"
-        needsPad = strlength(hourToken) == 1 & hourToken ~= ""; % Pad hour token if it is a single digit
-        t_raw(needsPad) = "0" + t_raw(needsPad);
-        t = t_raw;
 
+        % Add 0 to hour if needed
+        hourToken = extractBefore(t_raw, ":"); % Get everything before the first ":"
+        needsHourPad = strlength(hourToken) == 1 & hourToken ~= ""; % Pad hour token if it is a single digit
+        t_raw(needsHourPad) = "0" + t_raw(needsHourPad);
+
+        % Add seconds if missing
+        % % Counts the colons; "HH:mm" has 1 and "HH:mm:ss" has 2
+        cCount = count(t_raw, ":");
+        needsSecPad = cCount == 1;
+        t_raw(needsSecPad) = t_raw(needsSecPad)+":00";
+
+        % final padded time
+        t = t_raw;
+        
         % Create ISO 8601 datetime
         dateStrings = y + "-" + m + "-" + d + "T" + t + "Z";
         outVar = p + "DATE_TIME";
@@ -56,9 +66,11 @@ for p = prefixes(:).'
 
         tbl(:, [yearVar, monthVar, dayVar]) = []; % remove expanded columns
 
-        
+
     end
 
     % put it into tbl, so it now matches the json config
     tbl.(outVar) = dateTime;
+end
+
 end
