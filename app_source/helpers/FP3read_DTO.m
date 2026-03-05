@@ -142,8 +142,9 @@ fclose(file);
 % Get starttime from the header
 starttime = double(FP3_data(17,1:4));
 starttime = ((starttime(1)*256 + starttime(2))*256 + starttime(3))*256 + starttime(4);
-starttimeFP3=datenum([1899 12 30 0 starttime 0]); % changed from datenum
+starttimeFP3=datenum([1899 12 30 0 starttime 0]); 
 %datebase = 1899-12-30 00:00
+% datetime(starttimeFP3, 'ConvertFrom', 'datenum', 'Format', 'yyyy-MM-ddHH:mm:ss'); % check datetime
 
 % save header for later
 headerBytes = FP3_data(1:64,:);
