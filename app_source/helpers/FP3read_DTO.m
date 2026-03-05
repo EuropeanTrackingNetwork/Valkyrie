@@ -114,7 +114,7 @@ function [minutes, trains]=FP3read_DTO(path,filename, n)
 % their meaning are outlined here:
 % 247: Text error code
 % 248: social call parameters
-% 250: wev recording info
+% 250: wav recording info
 % 252: sonar ghosts record
 % 253: Duff record
 % 255: end of recording 
@@ -199,11 +199,30 @@ specieslist={'NBHF','Dolphin','Unclass.','Sonar','possibleSonar'};
 minutes=struct;
 trains=struct;
 trainno=1;
-for currentminute=1:sum(minutebreaks)-1
+for currentminute=1:length(minuteindex)
     minutes(currentminute).time=starttimeFP3+(currentminute-1)/1440; % convert time to the right format
     minutes(currentminute).temperature=FP3_data(minuteindex(currentminute),8); % get temperature in current minute from column 8
     minutes(currentminute).angle=round(acosd(1-double(FP3_data(minuteindex(currentminute),4))/128)); % get angle in current minute from column 4
-    if minuteindex(currentminute+1)>minuteindex(currentminute)+1   %minute not empty 
+   
+
+    % Determine left and right boundaries for click extraction
+    if currentminute < length(minuteindex)
+        left = minuteindex(currentminute)+1;
+        right = minuteindex(currentminute+1)-1;
+    else
+        left = minuteindex(currentminute)+1;
+        right = length(FP3_data);
+    end
+
+    if left > right % If there is no clicks in that minute
+        noclicksinminute = true;
+    else
+        noclicksinminute = false;
+        clicksinminute = FP3_data(left:right,:);
+    end
+
+
+    if ~noclicksinminute   %minute not empty 
         clicksinminute=FP3_data(minuteindex(currentminute)+1:minuteindex(currentminute+1)-1,:); %all clickinfo in current minute (between the minute breaks)
         clickdata = clicksinminute(clicksinminute(:,1)<=183,:); % get click data record for minute - needed for freq filtering and train duration
         clicksinminute = clicksinminute(clicksinminute(:,1)==249,:); % get train details data for a minute
@@ -290,92 +309,12 @@ for currentminute=1:sum(minutebreaks)-1
         minutes(currentminute).clickLow=0;
         minutes(currentminute).clickAll=0;
     end
-    % if ~noFP1   %Get nall from FP1-file, if present
-    %     if minuteindexFP1(currentminute+1)>minuteindexFP1(currentminute)+1   %FP1 minute not empty
-    %         allRecords = FP1_data(minuteindexFP1(currentminute)+1 : ...
-    %                   minuteindexFP1(currentminute+1)-1, :);
-    % 
-    %         %Extract only click records (0–183)
-    %         clicksinminute = allRecords(allRecords(:,1) <= 183, :);
-    % 
-    %         %Filter sonar clicks
-    %         %clicksinminute(clicksinminute(:,16) < 2, :) = [];
-    % 
-    % 
-    %         % --------------------------------------------
-    %         % Filter clicks based on KERNO-F settings (for nall to match
-    %         % output of FPOD.exe)
-    %         % --------------------------------------------
-    %         % Based on both Nick's code and Jamie's Java script filtering
-    %         % based on frequency is always based on the frequncy derived
-    %         % from IPI unless the user has checked a box to use the
-    %         % duration-derived frequency. This script has implemented both
-    %         % so we can include the duration-derived one if we find out it
-    %         % is something that has been used (most will have used the
-    %         % default).
-    %         % % Filter based on clicks that are evaluated by the KERNO-F
-    %         % % version 1 classifier - amplitude > 10 and between 22 and 221
-    % 
-    %         % % Extract values
-    %         rawPk = double(clicksinminute(:,11));
-    %         rawPk(rawPk < 2) = 2;
-    %         IPIatMax = double(clicksinminute(:, 7)) + 1 ; % IPI is byte 6 + 1
-    % 
-    %         % Use header-derived HasExtendedAmps
-    %         realAmp = RawToRealPk(rawPk, IPIatMax, HasExtendedAmps);
-    % 
-    %         % Now apply amplitude thresholding (e.g., for KERNO-F classifier)
-    %         clicksinminute(realAmp <= 11, :) = [];
-    % 
-    %         % % Update/extract values after filtering
-    %         Ncyc = double(clicksinminute(:,3));% Number if cycles
-    %         IPIatMax = double(clicksinminute(:, 7)) + 1 ; % IPI is byte 6 + 1
-    %         duration = bitor(bitshift(bitand(double(clicksinminute(:,14)), 240), 4), double(clicksinminute(:,15)));
-    % 
-    %         % % Get Frequency from IPI (always used)
-    %         ClkKHZpk = round(4000 ./ IPIatMax);  % same in Delphi + Java
-    % 
-    % 
-    %         % % Frequency from duration (conditionally used)
-    %         ClkKHZdur = ClkKHZpk; % default fallback
-    % 
-    %         % Duration-based frequency rules from Delphi/Nick's code
-    %         midrange = (Ncyc >= 5 & Ncyc < 16) & (duration >= 100);
-    %         longclicks = (Ncyc >= 16) & (duration >= 100);
-    % 
-    %         ClkKHZdur(midrange)  = round((4000 .* (Ncyc(midrange) - 3)) ./ duration(midrange));
-    %         ClkKHZdur(longclicks) = round(60000 ./ duration(longclicks));
-    % 
-    %         % Delphi code: If discrepancy >30 kHz, revert to IPI estimate
-    %         diffTooBig = abs(ClkKHZdur - ClkKHZpk) > 30;
-    %         ClkKHZdur(diffTooBig) = ClkKHZpk(diffTooBig);
-    % 
-    %         % Determine which KHZ value is in use
-    %         % Note: In FPOD.exe, this is user-controlled. Default is to use ClkKHZpk
-    %         % If we want we can implement using duration-derived frequency:
-    %         useDurationFreq = false; % set true to match "ShowKHZfromDuration.Checked" from Nick's code
-    % 
-    %         if useDurationFreq
-    %             ClkKHZinUse = ClkKHZdur;
-    %         else
-    %             ClkKHZinUse = ClkKHZpk;
-    %         end
-    % 
-    %         validFreq = ClkKHZinUse >= 21 & ClkKHZinUse <= 221;
-    %         clicksinminute = clicksinminute(validFreq, :);
-    % 
-    %         minutes(currentminute).nall=size(clicksinminute,1); % nall: number of valid clicks in minute (after filtering by amplitude and frequency)
-    % 
-    %     else
-    %         minutes(currentminute).nall=0;
-    %     end
-    % end
-    % % PLACEHOLDER: add in minON to match the CP3read format
-    %
-
-    % Test of whether Nall can be extracted directly from FP3 files to
-    % match Detection and Environment export
-
+   
+    % Based on correspondence with Nick Treganza, the Nall value that is
+    % provided from FPOD.exe exports like Detections and Environment are
+    % filtered clicks - so it is all the clicks that the classifier sees,
+    % and not all clicks detected. This value is extracted from the FP3
+    % data at these bytes: 
     byte9  = double(FP3_data(minuteindex(currentminute), 9));
     byte10 = double(FP3_data(minuteindex(currentminute),10));
 

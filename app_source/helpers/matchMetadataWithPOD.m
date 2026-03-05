@@ -46,7 +46,7 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
         dep = metadata.DEPLOY_DATE_TIME(i);
         val = metadata.VALID_DATA_UNTIL_DATE_TIME(i);
 
-        % Start time for  both activation and deployment datetime
+        % Start time for both activation and deployment datetime
         if ~isnat(act)
             startDtact = act;
         end
@@ -125,7 +125,7 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
 
 
             % String for deploymentId (exactly "YYYY MM DD")
-            dateForId = sprintf('%s %s %s',tokens{1}{1},tokens{1}{2},tokens{1}{3});
+            dateForId = datestr(startDaydep, 'yyyy mm dd');
 
 
             % Check POD ID match (support CPOD/FPOD naming)
@@ -137,19 +137,26 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
             fileDay = dateshift(fileDate, 'start', 'day');
             fileDay.TimeZone = '';
             
-            % Half-open interval [start, end)
-            % Base the range on whether filename has the deployment or the
-            % activation date
+            % The ID used for ETN (filename in Detection output) should
+            % always refer the station name, deploytment date and receiver
+            % ID:
+      
+            deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits; 
+
+            % Check if POD filename date is within the datetime provided in
+            % metadata:
             if fileDay >= startDayact && fileDay < startDaydep && fileDay < endDay
-                deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits; 
+                % deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits; 
                 inRange = true;
             elseif fileDay >= startDaydep && fileDay > startDayact && fileDay < endDay
-                deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits; 
+                % deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits; 
                 inRange = true;
             else
-                deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits;
+                % deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits;
                 inRange = false;
             end
+
+
 
             if podMatch && inRange
                 matchedFilesForRow{end+1} = fname;
@@ -170,7 +177,7 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
  
     end
     
-    % --- Add podtype in front of the receiver serial number
+    % --- Add receiver ID
     
     for i = 1:n
         if podTypes(i) ~= ""   % Only modify if we actually found a POD type
@@ -180,14 +187,15 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
             % Extract numeric part again (same logic you already use)
             digits = regexp(rec, '\d+', 'match', 'once');
             if isempty(digits)
-                % If no digits, skip (or prepend full string if you prefer)
+                % If no digits, skip
                 continue;
             end
     
             % Write back the modified receiver
-            metadata.RECEIVER(i) = podTypes(i) + "-" + digits;
+            metadata.RECEIVER(i) = digits;
         end
     end
+
 
     % -----------------------------------------
     % Build updated metadata rows (annotated)

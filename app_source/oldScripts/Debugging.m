@@ -193,7 +193,5 @@ writetable(cleanedMeta, fullfile(basePath, [nameOnly '_metadata.csv']));
 % Save the detections that had metadata matches
 writetable(Detections, fullfile(basePath, [nameOnly '_detections.csv']));
 
-% Create receiver file
-Receivers = createReceivers(MetaData, cellstr(app.processList));
 % Save receiver file
 writetable(Receivers, fullfile(basePath, [nameOnly '_receivers.csv']));
