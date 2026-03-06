@@ -55,6 +55,9 @@ end
 % round angle
 ETN.angle = round([ETN.angle]);
 
+% round temperature
+ETN.temperature = round([ETN.temperature]);
+
 % change quality to names
 ETN.quality = categorical(ETN.quality, [1 2 3], {'Lo', 'Mod', 'Hi'});
 
