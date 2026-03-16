@@ -47,7 +47,7 @@ for i = 1:height(ETN)
         if ~isempty(dummy_minute)
             milliseconds = arrayfun(@(x) x.time(end) - x.time(1), dummy_minute); % train duration
             ETN.milliseconds(i) = sum(milliseconds);
-            ETN.bpm(i) = any(arrayfun(@(s) any(s.ici < 40000), dummy_minute)); % are there any buzzes?
+            ETN.bpm(i) = any(arrayfun(@(s) any(s.ici < 8000), dummy_minute)); % are there any buzzes? less than 8000 microseconds
         end
     end
 end
