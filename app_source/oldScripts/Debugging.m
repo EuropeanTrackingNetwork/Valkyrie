@@ -187,6 +187,18 @@ cleanedMeta = MetaData(rowsMeta & rowsHasMatch, :);
 % Filter to only include columns required for ETN:
 cleanedMeta = cleanedMeta(:, OutputOrder);
 
+
+% Convert table to cell array
+C = table2cell(cleanedMeta);
+
+% Replace only NaT (datetime missing)
+isNaTcell = cellfun(@(x) isa(x,'datetime') && isnat(x), C);
+C(isNaTcell) = {''};
+
+% Convert back to table with original variable names
+cleanedMeta = cell2table(C, 'VariableNames', cleanedMeta.Properties.VariableNames);
+
+
 % Save the cleaned and matched metadata
 writetable(cleanedMeta, fullfile(basePath, [nameOnly '_metadata.csv']));
 
