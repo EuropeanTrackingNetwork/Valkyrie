@@ -192,7 +192,7 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
             end
     
             % Write back the modified receiver
-            metadata.RECEIVER(i) = digits;
+            metadata.RECEIVER(i) = podTypes(i) + "-" + digits;
         end
     end
 
