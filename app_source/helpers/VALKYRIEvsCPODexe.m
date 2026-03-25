@@ -36,6 +36,9 @@ CPOD_output.DT = DT;
 % where datetimes are missing:
 T = outerjoin(CPOD_output, valkyrie_output, 'LeftKeys', 'DT', 'RightKeys', 'DETECTION_DATE_TIME');
 
+% Difference in angle
+AngleDiff = T.Angle-T.ANGLE;
+
 % How many rows are missing for the datetime (since NaT will display if
 % only datetime in one of the tables)
 missing_cpod = sum(ismissing(T.DETECTION_DATE_TIME));

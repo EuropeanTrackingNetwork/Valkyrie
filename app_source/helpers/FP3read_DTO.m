@@ -193,6 +193,9 @@ minuteindex=dummy(minutebreaks);        % index to location of minutebreaks in d
 FPGAcodeVersion = headerFlat(40)*256 + headerFlat(41);  % bytes 39–40 (MATLAB is 1-based)
 HasExtendedAmps = FPGAcodeVersion > 801; % determine if version is >801, which will be important for filtering options
 
+%% Create the angle look up table
+GtoAngle = makeGtoAngle();
+
 %% Read clicks minute by minute
 qualitylist={'Doubtful','Low','Medium','High'};
 specieslist={'NBHF','Dolphin','Unclass.','Sonar','possibleSonar'};
@@ -202,10 +205,13 @@ trainno=1;
 for currentminute=1:length(minuteindex)
     minutes(currentminute).time=starttimeFP3+(currentminute-1)/1440; % convert time to the right format
     minutes(currentminute).temperature=FP3_data(minuteindex(currentminute),8); % get temperature in current minute from column 8
-    minutes(currentminute).angle=round(acosd(1-double(FP3_data(minuteindex(currentminute),4))/128)); % get angle in current minute from column 4
-   
+   % minutes(currentminute).angle=round(acosd(1-double(FP3_data(minuteindex(currentminute),4))/128)); % get angle in current minute from column 4
 
-    % Determine left and right boundaries for click extraction
+   % % Get angle from the lookup array
+   minutes(currentminute).angle = GtoAngle(double(FP3_data(minuteindex(currentminute),4)) + 1); % +1 to match with the byte coding
+
+
+   % Determine left and right boundaries for click extraction
     if currentminute < length(minuteindex)
         left = minuteindex(currentminute)+1;
         right = minuteindex(currentminute+1)-1;
