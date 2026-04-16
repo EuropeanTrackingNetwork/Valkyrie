@@ -87,6 +87,9 @@ After processing is complete, Valkyrie produces three output files:
 ### 8. Upload output files to ETN
 All output files are ready for direct ingestion into the ETN Underwater Acoustics database with no further formatting required.
 
+## Troubleshooting
+When uploading data to ETN, ETN will run some checks to ensure the quality of the data that is uploaded. One check is that the metadata has not already been uploaded. This error can occur if you upload a metadata sheet with several deployments and then upload a folder containing a lot of deployments. VALKYRIE will match all metadata and detection files that have been uploaded, and will not take into account that some could have been processed before. If this error occurs at ETN, either remove the deployments manually or rerun files in VALKYRIE, only including the detection files you want to process instead of folders with subfolders.
+
 ## Meta
 - License: MIT
 - Please note that by using VALKYRIE and registering for ETN, you agree to the following Data Policy https://www.lifewatch.be/etn/assets/docs/ETN-DataPolicy.pdf.
