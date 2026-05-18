@@ -20,7 +20,7 @@ receivers = table('Size', [numRows,4], ...
     'VariableNames', {'RCV_MANUFACTURER','RECEIVER_ID_SERIAL_NUMBER','RECEIVER_MODEL','RCV_STATUS'});
 
 receivers.RCV_MANUFACTURER(:) = "CHELONIA" ;
-receivers.RECEIVER_ID_SERIAL_NUMBER = tblMatch.RECEIVER ;
+receivers.RECEIVER_ID_SERIAL_NUMBER = regexp(tblMatch.RECEIVER, '\d+', 'match', 'once'); % Saves only the numerical part of the RECEIVER field
 receivers.RECEIVER_MODEL = tblMatch.PodType; % Should be either C-POD or F-POD
 receivers.RCV_STATUS(:) = "Active" ;
 
