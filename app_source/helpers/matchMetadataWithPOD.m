@@ -145,10 +145,13 @@ function updatedMetadata = matchMetadataWithPOD(fileList, metadata)
 
             % Check if POD filename date is within the datetime provided in
             % metadata:
-            if fileDay >= startDayact && fileDay < startDaydep && fileDay < endDay
+            % OBS: updated 20260527 so that fileday could be equal to both
+            % activation and deployment day, as activation might occur on
+            % the same day a unit is deployed. 
+            if fileDay >= startDayact && fileDay <= startDaydep && fileDay < endDay
                 % deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits; 
                 inRange = true;
-            elseif fileDay >= startDaydep && fileDay > startDayact && fileDay < endDay
+            elseif fileDay >= startDaydep && fileDay >= startDayact && fileDay < endDay
                 % deploymentId(i) = station + " " + dateForId + " POD" + receiverDigits; 
                 inRange = true;
             else
