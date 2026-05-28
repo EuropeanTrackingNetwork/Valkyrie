@@ -1,4 +1,4 @@
-function [minutes, trains]=FP3read_DTO(path,filename, n)
+function [minutes, trains]=FP3read_DTO(path,filename, n, pairPath)
 % [minutes, trains]=FP3read(filename, n)
 % Reads F-POD FP3-datafile
 % returns structures "minutes" with data arranged per minute and
@@ -156,7 +156,7 @@ FP3_data(ismember(FP3_data(:,1), [247, 248, 250, 252, 253, 255]), :) = []; % del
 if nargin>2 && strcmp('-n',n) % set nargin>1 if the path argument is removed
     try     %Read FP1-file, if present
         % file=fopen([filename,'.FP1']);
-        file = fopen([path, '\', filename, '.FP1']);
+        file = fopen(pairPath);
         noFP1=false;
     catch
         disp('FP1-file not found!');

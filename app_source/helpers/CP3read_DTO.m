@@ -1,4 +1,4 @@
-function [minutes, trains]=CP3read_DTO(path,filename, n)
+function [minutes, trains]=CP3read_DTO(path,filename, n,pairPath)
 % [minutes, trains]=CP3read_DTO(filename, n)
 % Reads C-POD CP3-datafile
 % returns structures "minutes" with data arranged per minute and
@@ -142,7 +142,7 @@ fclose(file);
 
 if nargin>2 && strcmp('-n',n) % set nargin>1 if the path argument is removed
     try     %Read CP1-file, if present
-        file = fopen([path,'\', filename, '.CP1']);
+        file = fopen(pairPath);
         %file=fopen([filename,'.CP1']);
         noCP1=false;
     catch

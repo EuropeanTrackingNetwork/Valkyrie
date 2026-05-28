@@ -113,18 +113,19 @@ for i = 1:height(processTbl)
     i
     filename = processTbl.FileName{i};
     path = processTbl.Path{i};
+    pairPath = processTbl.PairPath{i};
     [~,~,ext] = fileparts(filename);
 
     try % Wrapped in a try-catch to ensure app will not crash if the import and formatting doesn't work for one of the files
         switch ext
             case '.CP3'
                 % Import CP3 (and CP1) file and convert to ETN format
-                tmpMinutes = CP3read_DTO(path,filename,n);
+                tmpMinutes = CP3read_DTO(path,filename,n,pairPath);
                 ETN = CP3read_2_etn(tmpMinutes);
             case '.FP3'
                 % Import FP3 (and FP1) file and convert to ETN
                 % format
-                tmpMinutes = FP3read_DTO(path, filename, n);
+                tmpMinutes = FP3read_DTO(path, filename, n,pairPath);
                 ETN = CP3read_2_etn(tmpMinutes);
         end
     catch

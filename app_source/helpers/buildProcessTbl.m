@@ -57,6 +57,29 @@ function [processTbl,metaAligned,processList] = buildProcessTbl(metaTbl,filtFile
     [~, loc] = ismember(procNames, tblNames);            % assumed all present
     fullPaths = string(filesTbl.FullPath(loc));
 
+    % ----- map UI names -> FullPath via filesTbl (case-insensitive) -----
+    tblNames = norm(filesTbl.NameExt(:));
+    [~, loc] = ismember(procNames, tblNames);            % assumed all present
+    fullPaths = string(filesTbl.FullPath(loc));
+
+% ----- look up companion CP1/FP1 path for each CP3/FP3 file -----
+    pairPaths = strings(numel(procNames), 1);
+    pairExtMap = dictionary([".cp3", ".fp3"], [".CP1", ".FP1"]);
+
+    for i = 1:numel(procNames)
+        [~, baseName, ext] = fileparts(char(procNames(i)));
+        extLower = lower(ext);
+        if isKey(pairExtMap, extLower)
+            pairName = norm(string(baseName) + pairExtMap(extLower));
+            [~, pairLoc] = ismember(pairName, tblNames);
+            if pairLoc > 0
+                pairPaths(i) = string(filesTbl.FullPath(pairLoc));
+            else
+                warning('buildProcessTbl: no paired file found for %s', procNames(i));
+            end
+        end
+    end
+
     % ----- compute MetaRow per processed file -----
     metaIdx = zeros(numel(procNames), 1, 'int32');
 
@@ -70,14 +93,15 @@ function [processTbl,metaAligned,processList] = buildProcessTbl(metaTbl,filtFile
     end
 
 
-    % ----- assemble outputs -----
+% ----- assemble outputs -----
     [folders, names, exts] = arrayfun(@fileparts, cellstr(fullPaths), 'UniformOutput', false);
     processTbl = table( ...
         string(folders), ...
         string(names) + string(exts), ...
         fullPaths, ...
+        pairPaths, ...          % <-- add this
         metaIdx, ...
-        'VariableNames', {'Path','FileName','FullPath','MetaRow'} ...
+        'VariableNames', {'Path','FileName','FullPath','PairPath','MetaRow'} ...
     );
 
 
