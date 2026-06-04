@@ -1,4 +1,4 @@
-
+<img width="4000" height="3397" alt="valkyrieV1alt" src="https://github.com/user-attachments/assets/6ec509c0-e037-456e-8754-0f6a89e98538" />
 
 # VALKYRIE
 Valkyrie is a tool developed within the DTO BioFlow project (https://dto-bioflow.eu/) to harmonize metadata and porpoise detection data from C‑PODs and F‑PODs. It takes raw detection files (CP1/CP3 or FP1/FP3 pairs) together with standardized deployment metadata and produces ETN‑ready output files that can be uploaded directly to the ETN Underwater Acoustics database.
@@ -8,7 +8,7 @@ Valkyrie validates metadata, matches POD detection files to deployments, extract
 VALKYRIE can be installed on windows platforms. 
 Installation and use of VALKYRIE does not require MATLAB license.
 
-1. Download the installer here [link to installer once we release].
+1. Download the installer here (https://github.com/EuropeanTrackingNetwork/Valkyrie/releases/download/v0.2/VALKYRIE_v0_2_installer.exe).
 2. Run the installer by double-clicking. It can take a moment to open the installer, as it will automatically install MATLAB Runtime on the first download. When the installation window appears, follow the prompts.
 
 ## Usage
@@ -91,5 +91,10 @@ All output files are ready for direct ingestion into the ETN Underwater Acoustic
 When uploading data to ETN, ETN will run some checks to ensure the quality of the data that is uploaded. One check is that the metadata has not already been uploaded. This error can occur if you upload a metadata sheet with several deployments and then upload a folder containing a lot of deployments. VALKYRIE will match all metadata and detection files that have been uploaded, and will not take into account that some could have been processed before. If this error occurs at ETN, either remove the deployments manually or rerun files in VALKYRIE, only including the detection files you want to process instead of folders with subfolders.
 
 ## Meta
+
 - License: MIT
 - Please note that by using VALKYRIE and registering for ETN, you agree to the following Data Policy https://www.lifewatch.be/etn/assets/docs/ETN-DataPolicy.pdf.
+
+<img width="506" height="107" alt="aulogo_uk_var2_blue" src="https://github.com/user-attachments/assets/bda63fcf-5fd1-4b40-b886-7fb6bbbdb3d9" />
+<img width="1200" height="630" alt="VLIZ_LOGO_OG_TWITTER_1200x630-2573066346" src="https://github.com/user-attachments/assets/190bbe1e-f313-469d-9bb9-bc90a60ca223" />
+<img width="1337" height="429" alt="Logo_BIO-Flow2023_Positive" src="https://github.com/user-attachments/assets/a8309f6e-65e9-4b26-ab82-d158e46e34e6" />
