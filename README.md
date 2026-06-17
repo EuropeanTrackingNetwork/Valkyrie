@@ -1,8 +1,8 @@
 <img width="4000" height="3397" alt="valkyrieV1alt" src="https://github.com/user-attachments/assets/6ec509c0-e037-456e-8754-0f6a89e98538" />
 
 # VALKYRIE
-Valkyrie is a tool developed within the DTO BioFlow project (https://dto-bioflow.eu/) to harmonize metadata and porpoise detection data from C‑PODs and F‑PODs. It takes raw detection files (CP1/CP3 or FP1/FP3 pairs) together with standardized deployment metadata and produces ETN‑ready output files that can be uploaded directly to the ETN Underwater Acoustics database.
-Valkyrie validates metadata, matches POD detection files to deployments, extracts detections from raw files, and formats all outputs according to ETN requirements.
+Valkyrie is a tool developed within the DTO BioFlow project (https://dto-bioflow.eu/) to harmonize metadata and porpoise detection data from C‑PODs and F‑PODs. It takes raw detection files (CP1/CP3 or FP1/FP3 pairs) together with standardized deployment metadata and produces ETN‑ready output files that can be uploaded directly to the open repository ETN Underwater Acoustics database.
+Valkyrie validates metadata, matches POD detection files to deployments, extracts detections from raw files, and formats all outputs according to ETN requirements. This produces harmonized metadata alongside minute resolution detections per quality label (high, moderate adn low) for harbour porpoise (_Phocoena phocoena_).
 
 ## Installation
 VALKYRIE can be installed on windows platforms. 
@@ -48,7 +48,7 @@ Accepted format:
 - .CSV
 
 Metadata includes information on the deployments. Download a template for metadata here https://github.com/EuropeanTrackingNetwork/Valkyrie/blob/main/app_source/SampleDeployments/VALKYRIE%20Sample%20Metadata%20-%20Blank.xlsm.
-The template has built in macros, allowing the user to fill in the date and time for a deployment, which will then automatically be filled in for the Year, Month, Date, Time columns. Be sure to check that the datetime columns have the correct date shown in the format DD/MM/YYYY HH:mm:ss.
+The template has built in macros, allowing the user to fill in the date and time for a deployment, which will then automatically be filled in for the Year, Month, Date, Time columns. Be sure to check that the datetime columns have the correct date shown in the format DD/MM/YYYY HH:mm:ss. Note that in order for the template to work as intended, the macros that can automatically split a datetime into separate columns have to be unblocked.
 OBS: once the metadata has been filled out make sure to save the metadata as a copy in the csv format. The macros will only work for future deployments if the original file is saved as an .xlsm file.
 
 ### 3. Upload raw POD files
@@ -60,8 +60,8 @@ The selected files will be displayed in the window pane for viewing.
 
 ### 4. Upload metadata files
 Once POD files are uploaded and validated, you can upload the metadata file. Valkyrie will validate all fields and report any issues.
-
 VALKYRIE can only process files for a single ETN project at a time. If more than one project appears in the metadata, the user will be prompted to select which one they want to process. 
+Make sure to only process a maximum of 10 deployments in a single run with VALKYRIE, as the output files will otherwise be too large. This will ensure that processing and ingestion into ETN runs smoothly.
 
 ### 5. Evaluate file match
 When metadata has been validated, the user can click Confirm to inspect the matches between metadata deployments and POD files. 
@@ -86,6 +86,12 @@ After processing is complete, Valkyrie produces three output files:
 
 ### 8. Upload output files to ETN
 All output files are ready for direct ingestion into the ETN Underwater Acoustics database with no further formatting required.
+The order of input into ETN is:
+1. Upload the metadata receivers
+2. Upload the deployment metadata
+3. Upload the detections
+
+Check that the metadata and detection data have the correct columns here: https://lifewatch.be/etn/underwater_dataimport
 
 ## Troubleshooting
 When uploading data to ETN, ETN will run some checks to ensure the quality of the data that is uploaded. One check is that the metadata has not already been uploaded. This error can occur if you upload a metadata sheet with several deployments and then upload a folder containing a lot of deployments. VALKYRIE will match all metadata and detection files that have been uploaded, and will not take into account that some could have been processed before. If this error occurs at ETN, either remove the deployments manually or rerun files in VALKYRIE, only including the detection files you want to process instead of folders with subfolders.
