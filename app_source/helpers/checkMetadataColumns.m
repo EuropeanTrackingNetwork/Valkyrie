@@ -70,6 +70,59 @@ function [tblOut, all_identical, uniqueProjects] = checkMetadataColumns(tbl, req
         end
     end
 
+        % --- 3) Controlled-vocabulary checks ---
+    % These are the metadata fields where ETN requires specific input
+    % SPECIES_PREFERENCES  : mandatory — every row must contain a valid value
+    % ADDITIONAL_CLASSIFIER: optional  — blank/missing rows are fine, but any
+    %                         filled value must be from the accepted list
+    % MOORING_TYPE: optional - fine to be blank, but filled values must be from the accepted list "surface-buoy", "surface-wind-turbine" or "bottom-mooring".
+
+    vocabCols      = upper(["SPECIES_PREFERENCES", "ADDITIONAL_CLASSIFIER", "MOORING_TYPE"]);
+    vocabValues    = {["NA","No_Dolphins","No_Sonar","No_Dolphins&Sonar"], ...
+                      ["Default", "Hel1", "Genenc", "NA", "advancedKerno"], ...
+                      ["surface-buoy", "surface-wind-turbine", "bottom-mooring"]};
+    vocabMandatory = [true, false, false];   % true = every row must be valid; false = only if filled
+    invalidVocab   = strings(0,1);
+
+    for i = 1:numel(vocabCols)
+        col = vocabCols(i);
+        if ~ismember(col, present)
+            continue   % absent column: mandatory-presence check handles it if needed
+        end
+        raw      = string(tbl.(col));
+        vals     = upper(strtrim(raw));
+        canonical = vocabValues{i};          % original casing to write back
+        allowed  = upper(canonical);
+        isEmpty  = (vals == "" | ismissing(vals) | strcmpi(vals, "nan"));
+
+        if vocabMandatory(i)
+            % Every row must be a valid vocab entry — empties also count as invalid
+            bad = ~ismember(vals, allowed);
+        else
+            % Only non-empty rows need to match the vocab
+            bad = ~ismember(vals, allowed) & ~isEmpty;
+        end
+
+        if any(bad)
+            badUniq = unique(raw(bad), 'stable');
+            invalidVocab(end+1) = col + " contains invalid value(s): " + ...
+                strjoin(badUniq, ', ') + ...
+                "  (accepted: " + strjoin(canonical, ', ') + ")";
+        else
+            % Normalise valid (non-empty) values to their canonical casing
+            good = ~isEmpty;
+            if vocabMandatory(i)
+                good = true(size(vals));   % all rows normalised for mandatory cols
+            end
+            normalised = raw;
+            for k = 1:numel(canonical)
+                match = good & (vals == allowed(k));
+                normalised(match) = canonical(k);
+            end
+            tbl.(col) = normalised;
+        end
+    end
+
     % Throw errors if there are issues with the mandatory columsn
     issues = strings(0,1);
     if ~isempty(missingMandatory)
@@ -80,12 +133,16 @@ function [tblOut, all_identical, uniqueProjects] = checkMetadataColumns(tbl, req
         issues(end+1) = "Mandatory columns contain empty values: " + strjoin(emptyMandatory, ', ');
     end
 
+    if ~isempty(invalidVocab)
+        issues = [issues; invalidVocab];
+    end
+
     if ~isempty(issues)
         error(strjoin(issues, newline));
     end
 
 
-    % ---- 3) Add missing NON-mandatory columns as empty (no error) ----
+    % ---- 4) Add missing NON-mandatory columns as empty (no error) ----
     present = string(tbl.Properties.VariableNames); %refreshes
     optional = setdiff(outputOrder, mandatory, 'stable');
     missingOptional = optional(~ismember(optional, present));
@@ -99,12 +156,12 @@ function [tblOut, all_identical, uniqueProjects] = checkMetadataColumns(tbl, req
         end
     end
 
-    % ---- 4) Reorder to exact OutputOrder & drop extras ----
+    % ---- 5) Reorder to exact OutputOrder & drop extras ----
     %     % (All mandatory are present, optional now added as needed)
     tblOut = tbl(:, outputOrder);
 
 
-   % --- 5) Standardise empty values in OPTIONAL columns that already exist ---
+   % --- 6) Standardise empty values in OPTIONAL columns that already exist ---
     for i = 1:numel(optional)
         col = optional(i);
 
@@ -126,7 +183,7 @@ function [tblOut, all_identical, uniqueProjects] = checkMetadataColumns(tbl, req
         end
     end
 
-    % --- 6) Check that all values in RCV_PROJECT are uniqe ---
+    % --- 7) Check that all values in RCV_PROJECT are uniqe ---
 
     proj = string(tblOut.RCV_PROJECT);
     proj = strtrim(proj);
