@@ -58,7 +58,7 @@ fileTbl = createFileTable(filePaths);
 [~, ~, ~, unmatchedFiles, pairedFiles] = checkFileExtension(fileTbl.FullPath, check);
 
 % Check for dupliate files with different names
-[fileTbl, removedFiles] = removeFileDuplicates(fileTbl, pairedFiles);
+[fileTbl, removedFiles, stationConflicts] = removeFileDuplicates(fileTbl, pairedFiles);
 % writetable(fileTbl, 'fileTblFull.txt'); %to save the table
 
 % Create a list of only the P3 files that are paired:

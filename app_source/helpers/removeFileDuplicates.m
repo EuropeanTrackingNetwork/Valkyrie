@@ -1,4 +1,4 @@
-function [UniquefileTbl, removedFiles] = removeFileDuplicates(fileTbl, pairedFiles)
+function [UniquefileTbl, removedFiles, stationConflicts] = removeFileDuplicates(fileTbl, pairedFiles)
 % Function to remove any duplicate files, where the base of the name are
 % the same. This means that the station name, datetime and pod ID are
 % identical, but something has been added to the end of the name, such as
@@ -12,24 +12,11 @@ function [UniquefileTbl, removedFiles] = removeFileDuplicates(fileTbl, pairedFil
 % a list of all the files that belong to a filepair
 
 % Output:
-% UniquefileTbl = a table with the files that have a file pair and were deemed the best
-% file to keep based on their byte size and filename
-% removedFiles = a table of all the files that were removed because a
-% better duplicate was found. Also includes a shorthand for why the file
-% was removed and the full file path to the file.
-
-%   UniqueFileTbl : table of kept rows (paired CP/FP 1 & 3 from best variant).
-%   removedFiles  : table of excluded rows with:
-%                   - FullPath
-%                   - NameExt
-%                   - Reason        : 'INVALID_EXTKIND'|'NOT_PAIR_13'|'WORSE_VARIANT'
-%                   - ReasonDetail  : short human-readable explanation
-%                   - PairGroupKey, PairVariantKey, PodFamily, ExtKind
-%                   - NameScore, Bytes
-%                   - Variant metrics: N, HasKinds, SumScore, SumBytes, MinScore
-%                   - Best variant metrics for the same PairGroupKey (to explain choice)
-
-
+% UniqueFileTbl     : table of kept rows (paired CP/FP 1 & 3 from best variant).
+% removedFiles      : table of excluded rows with reason codes and details.
+% stationConflicts  : string array of warnings where the same recording
+%                     appears under different station name prefixes.
+%                     Empty if no conflicts found.
 
 arguments
     fileTbl table
@@ -39,12 +26,6 @@ end
 % Keep only the files that have been paired
 % OBS: this will remove duplicates of the exact same name even if they
 % appear across several folders
-
-% uncomment these two lines to remove duplicate file names - they are kept
-% to keep track of duplicates across folders
-%[~, ia] = unique(string(fileTbl.NameExt), 'stable');
-%fileTbl_unique = fileTbl(ia, :);
-
 mask = ismember(string(fileTbl.NameExt), string(pairedFiles));
 T = fileTbl(mask, :);
 
@@ -65,60 +46,71 @@ if ~ismember("Bytes", T.Properties.VariableNames)
     T.Bytes = NaN(height(T),1);
 end
 
-
-% Compute FullPath for reporting
-% if ismember("FullName", T.Properties.VariableNames)
-%     T.FullPath = string(T.FullName);
-% elseif ismember("Folder", T.Properties.VariableNames)
-%     T.FullPath = string(fullfile(string(T.Folder), string(T.NameExt)));
-% else
-%     % Fallback: use NameExt only if no path info
-%     T.FullPath = string(T.NameExt);
-% end
-
-
 % === Build keys for pair-level deduplication ===
-% Group of logical pair (ignoring kind 1 vs 3)
-T.PairGroupKey = T.BaseKey + "_" + T.PodFamily;
 
+% Extract station prefix: everything before the first space in the filename.
+% This prevents files from different stations (e.g. GB4C vs KALF3B) being
+% treated as duplicates just because they share the same POD ID and date.
+% Lowercased for case-insensitive grouping.
+stationPrefix = lower(regexprep(string(T.NameExt), '\s.*$', ''));
+
+% Group of logical pair (ignoring kind 1 vs 3).
+% Station prefix is included so GB4C_20120211_1690_01_CP and
+% KALF3B_20120211_1690_01_CP are treated as separate groups and neither
+% is silently discarded in favour of the other.
+T.PairGroupKey = stationPrefix + "_" + T.BaseKey + "_" + T.PodFamily;
+
+% === Warn about cross-station conflicts ===
+% If the same BaseKey+PodFamily appears under more than one station prefix,
+% the data may be duplicated across differently-named deployments.
+% We warn rather than silently discard, since this requires human judgement.
+baseGroupKey = T.BaseKey + "_" + T.PodFamily;   % key without station prefix
+[~, ~, bgIdx] = unique(baseGroupKey, 'stable');
+
+stationConflicts = strings(0,1);
+for g = 1:max(bgIdx)
+    rows = find(bgIdx == g);
+    prefixes = unique(stationPrefix(rows), 'stable');
+    if numel(prefixes) > 1
+        stationConflicts(end+1) = strjoin(prefixes, ' / ') + ...
+            "  →  " + baseGroupKey(rows(1));
+    end
+end
+
+if ~isempty(stationConflicts)
+    warning(['Possible duplicate recordings under different station names:\n' ...
+             repmat('  %s\n', 1, numel(stationConflicts))], ...
+             stationConflicts{:});
+end
 
 % Variant stem = filename without the trailing ".CP1/.CP3/.FP1/.FP3"
-% Case-insensitive, robust to CP/FP uppercase/lowercase
 stem = regexprep(string(T.NameExt), '\.(?:CP|FP)[13]$', '', 'ignorecase');
 T.PairVariantKey = stem + "_" + T.PodFamily;
-
 
 % --- Quality metrics per VARIANT (must keep 1 and 3 together) ---
 Gv = findgroups(T.PairVariantKey);
 
-
 % Count how many files per variant
 nInVariant = splitapply(@numel, T.NameExt, Gv);
-
 
 % Ensure both kinds (1 and 3) exist within the variant
 hasKinds = splitapply(@(k) all(ismember(["1","3"], unique(string(k)))), T.ExtKind, Gv);
 
-
 % Pair-level score = sum of NameScore across the two files (lower is better)
 sumScore = splitapply(@sum, T.NameScore, Gv);
 
-
 % Tie-breakers at pair level
-sumBytes = splitapply(@(x) sum(x, 'omitnan'), T.Bytes, Gv);            % higher is better
-minScore = splitapply(@(x) min(x, [], 'omitnan'), T.NameScore, Gv);         % lower is better
+sumBytes = splitapply(@(x) sum(x, 'omitnan'), T.Bytes, Gv);           % higher is better
+minScore = splitapply(@(x) min(x, [], 'omitnan'), T.NameScore, Gv);   % lower is better
 
-% Tiebreak based on alphabetical earliest name (purely cosmetic, does not remove files)
-firstName = splitapply(@(x) string(x(find( ~cellfun(@isempty, x), 1, 'first'))), ...
+% Tiebreak based on alphabetical earliest name (purely cosmetic)
+firstName = splitapply(@(x) string(x(find(~cellfun(@isempty, x), 1, 'first'))), ...
     cellstr(T.NameExt), Gv);
 
 % Carry one representative row index per variant group (for keys)
 repIdx = splitapply(@(idx) idx(1), (1:height(T))', Gv);
 
-
-% Build variant table
-% Each row is for a file pair
-
+% Build variant table (each row is one file pair)
 Vfull = table( ...
     T.PairVariantKey(repIdx), T.PairGroupKey(repIdx), ...
     nInVariant, hasKinds, sumScore, sumBytes, minScore, firstName, ...
@@ -129,43 +121,36 @@ Vfull = table( ...
 % --- Choose the best variant per PairGroupKey (only among valid 1&3 variants) ---
 Vsel = Vfull(Vfull.HasKinds & Vfull.N >= 2, :);
 
-% Sort by quality: lower SumScore, higher SumBytes, lower MinScore, then FirstName
-% --- Choose the best VARIANT per PairGroupKey ---
-% Sort by PairGroupKey, then quality metrics:
-%   1) lower SumScore is better, (based on the sum of the namescore for
-%   a pair)
-%   2) higher SumBytes is better, (to get the file with most data)
-%   3) lower MinScore is better, (based on the minimum nameScore of a
-%   pair)
-%   4) FirstName alphabetical (stable cosmetic)
+% Sort by quality:
+%   1) lower SumScore is better (sum of name scores for the pair)
+%   2) higher SumBytes is better (keep the file with most data)
+%   3) lower MinScore is better (minimum name score of the pair)
+%   4) FirstName alphabetical (stable cosmetic tiebreak)
 Vsel = sortrows(Vsel, ...
     {'PairGroupKey','SumScore','SumBytes','MinScore','FirstName'}, ...
     {'ascend'      ,'ascend'  ,'descend' ,'ascend'  ,'ascend'});
-
 
 % Pick best per group
 [~, iaBest] = unique(Vsel.PairGroupKey, 'stable');
 bestVariantKeys = Vsel.PairVariantKey(iaBest);
 
-% Keep rows that belong to the winning variant(s) and are ext-kind 1 or 3
+% Keep rows belonging to the winning variant(s) with ext-kind 1 or 3
 isKind13  = ismember(T.ExtKind, ["1","3"]);
 keepMask  = ismember(T.PairVariantKey, bestVariantKeys) & isKind13;
 Out       = T(keepMask, :);
 
-
-% Final sort (optional)
+% Final sort
 Out = sortrows(Out, {'PairGroupKey','ExtKind','NameScore','Bytes'}, ...
     {'ascend'      ,'ascend' ,'ascend'   ,'descend'});
 
 % === Build 'removedFiles' report ===
 Rem = T(~keepMask, :);
 
-% Join variant metrics onto removed rows (merge BOTH keys so PairGroupKey survives unsuffixed)
+% Join variant metrics onto removed rows
 Rem = outerjoin(Rem, Vfull, ...
     'Keys', {'PairVariantKey','PairGroupKey'}, ...
     'Type', 'left', ...
     'MergeKeys', true);
-
 
 % Also join best metrics per PairGroupKey for explanation
 B = Vsel(iaBest, :);
@@ -177,8 +162,8 @@ Rem = outerjoin(Rem, B, 'Keys', 'PairGroupKey', ...
 
 % Reason codes
 invalidExt = ~(Rem.ExtKind == "1" | Rem.ExtKind == "3");
-notPair13  = ~invalidExt & (Rem.HasKinds == 0 | Rem.N < 2);  % variant lacks 1&3
-worseVar   = ~invalidExt & ~notPair13;                       % valid variant but not selected
+notPair13  = ~invalidExt & (Rem.HasKinds == 0 | Rem.N < 2);
+worseVar   = ~invalidExt & ~notPair13;
 
 Reason = strings(height(Rem),1);
 Reason(invalidExt) = "INVALID_EXTKIND";
@@ -188,17 +173,14 @@ Reason(worseVar)   = "WORSE_VARIANT";
 % ReasonDetail strings
 ReasonDetail = strings(height(Rem),1);
 
-% INVALID_EXTKIND detail
 ReasonDetail(invalidExt) = "Extension kind not recognized as '1' or '3'.";
 
-% NOT_PAIR_13 detail
 idxNP = find(notPair13);
 for k = idxNP(:)'
     ReasonDetail(k) = sprintf('Variant lacks both kinds (N=%d, HasKinds=%d).', ...
         safeInt(Rem.N(k)), safeInt(Rem.HasKinds(k)));
 end
 
-% WORSE_VARIANT detail (compare metrics to chosen best)
 idxWV = find(worseVar);
 for k = idxWV(:)'
     ReasonDetail(k) = sprintf(['Dedup by pair: this variant SumScore=%g, SumBytes=%g, MinScore=%g; ' ...
@@ -208,9 +190,7 @@ for k = idxWV(:)'
         safeNum(Rem.Best_SumScore(k)), safeNum(Rem.Best_SumBytes(k)), safeNum(Rem.Best_MinScore(k)));
 end
 
-
-% Assemble removedFiles table (only the most relevant columns for reporting)
-
+% Assemble removedFiles report table
 removedFiles = table( ...
     Rem.FullPath, Rem.NameExt, Rem.PodFamily, Rem.ExtKind, ...
     Rem.PairGroupKey, Rem.PairVariantKey, ...
@@ -227,11 +207,7 @@ removedFiles = table( ...
         'Reason','ReasonDetail' ...
     });
 
-
-% Return
 UniquefileTbl = Out;
-
-
 
 end
 
