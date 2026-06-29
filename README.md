@@ -1,4 +1,7 @@
-<img width="4000" height="3397" alt="valkyrieV1alt" src="https://github.com/user-attachments/assets/6ec509c0-e037-456e-8754-0f6a89e98538" />
+<figure>
+  <img width="4000" height="3397" alt="valkyrieV1alt" src="https://github.com/user-attachments/assets/6ec509c0-e037-456e-8754-0f6a89e98538" />
+  <figcaption>Logo credit: Cara A. Callagher</figcaption>
+</figure>
 
 # VALKYRIE
 Valkyrie is a tool developed within the DTO BioFlow project (https://dto-bioflow.eu/) to harmonize metadata and porpoise detection data from C‑PODs and F‑PODs. It takes raw detection files (CP1/CP3 or FP1/FP3 pairs) together with standardized deployment metadata and produces ETN‑ready output files that can be uploaded directly to the open repository ETN Underwater Acoustics database.
