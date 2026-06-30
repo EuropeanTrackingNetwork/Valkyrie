@@ -1,6 +1,6 @@
 <figure>
   <img width="4000" height="3397" alt="valkyrieV1alt" src="https://github.com/user-attachments/assets/6ec509c0-e037-456e-8754-0f6a89e98538" />
-  <figcaption>Logo credit: Cara A. Callagher</figcaption>
+  <figcaption>Logo credit: Cara A. Callagher, https://caragallagher.weebly.com</figcaption>
 </figure>
 
 # VALKYRIE
@@ -15,7 +15,7 @@ Installation and use of VALKYRIE does not require MATLAB license.
 2. Run the installer by double-clicking. It can take a moment to open the installer, as it will automatically install MATLAB Runtime on the first download. When the installation window appears, follow the prompts.
 
 ## Usage
-After installation, VALKYRIE is ready to use. However, to be able to upload output files into the ETN database, you need to first register on the ETN database website [insert link].
+After installation, VALKYRIE is ready to use. However, to be able to upload output files into the ETN database, you need to first register on the ETN database website (https://www.lifewatch.be/etn).
 
 The steps for using VALKYRIE are:
 1. Register as a user on ETN.
