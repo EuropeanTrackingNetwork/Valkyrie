@@ -95,16 +95,17 @@ function [tblOut, all_identical, uniqueProjects] = checkMetadataColumns(tbl, req
         allowed  = upper(canonical);
         isEmpty  = (vals == "" | ismissing(vals) | strcmpi(vals, "nan"));
 
-        if vocabMandatory(i)
+        %if vocabMandatory(i)
             % Every row must be a valid vocab entry — empties also count as invalid
-            bad = ~ismember(vals, allowed);
-        else
+            %bad = ~ismember(vals, allowed);
+        %else
             % Only non-empty rows need to match the vocab
             bad = ~ismember(vals, allowed) & ~isEmpty;
-        end
+       % end
 
         if any(bad)
             badUniq = unique(raw(bad), 'stable');
+            
             invalidVocab(end+1) = col + " contains invalid value(s): " + ...
                 strjoin(badUniq, ', ') + ...
                 "  (accepted: " + strjoin(canonical, ', ') + ")";
