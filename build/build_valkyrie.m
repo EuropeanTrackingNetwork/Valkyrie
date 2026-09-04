@@ -16,7 +16,7 @@ function build_valkyrie()
     configDir = fullfile(appSrc, 'config');    % nested inside app_source
     helpDir   = fullfile(appSrc, 'helpers');   % nested inside app_source
     gfxDir    = fullfile(appSrc, 'graphics');  % nested inside app_source
-    outDir    = 'O:\ValkyrieBuild';   % shared network drive — avoids OneDrive
+    outDir    = 'O:\Nat-Tech_DTO-BioFlow\VALKYRIE';   % shared network drive — avoids OneDrive
                                        % file-locking and Windows path-length limits
                                        % during installer packaging, and keeps
                                        % build output accessible to the whole team
