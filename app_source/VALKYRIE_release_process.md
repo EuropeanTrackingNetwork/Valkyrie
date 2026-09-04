@@ -134,6 +134,7 @@ build_valkyrie
 
 **On `RuntimeDelivery`:** `'installer'` bundles the MATLAB Runtime (~1–2 GB installer, works offline). `'web'` downloads it during install (small installer, needs internet). Pick one and keep it consistent, or publish both and label them clearly.
 
+OBS: if this fails on the read/write to the folder where the output should go, it could be because it is on OneDrive or the O:\drive. Try changing the output to a local folder instead.
 ---
 
 ## 5. Test the installer (preferably on another PC)
@@ -200,7 +201,8 @@ gh release create v1.0.0 .\Valkyrie_1.0.0_Setup.exe --title "Valkyrie 1.0.0" --n
 ## 7. Post-release
 
 - [ ] Download the asset from the release page and install it once more — confirms the upload is not corrupted
-- [ ] Archive the build output (installer + `mccExcludedFiles.log` + `BUILD_ENVIRONMENT.md`) somewhere outside the repo
+- [ ] Archive the build output (installer + `mccExcludedFiles.log` + `BUILD_ENVIRONMENT.md`) somewhere outside the repo. This is because at each compile the content will be overwritten.
+   Generate a folder here: O:\Nat-Tech_DTO-BioFlow\VALKYRIE\previous_builds for the given version and add the files in.
 - [ ] Announce to users; state explicitly if a new MATLAB Runtime is required
 - [ ] Update any documentation referring to the version
 
