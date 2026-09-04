@@ -15,7 +15,7 @@ MATLAB Runtime.
 | Build machine OS | Windows 11 (64-bit) | |
 | Test machine | _name/ID, e.g._ clean Win11 on Viretual Machinge, snapshot called "pre-install"_ | No MATLAB installed. Revert to snapshot before each Step 5 test |
 | `RuntimeDelivery` mode | `installer` | `installer` = MATLAB Runtime bundled (offline-capable, large). `web` = runtime downloaded during setup (small, needs internet). Keep consistent across releases unless deliberately changed and documented here |
-| MATLAB Runtime version shipped | R2025b | Must match what installer users will receive |
+| MATLAB Runtime version shipped | Compiler version: 25.2 (R2025b) | Must match what installer users will receive |
 
 ## Change log for this file
 

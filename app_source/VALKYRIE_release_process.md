@@ -123,7 +123,7 @@ The script lives at `build/build_valkyrie.m` (full listing in Appendix D — cop
 Run it:
 
 ```matlab
-cd app_source/build % navigate to folder with the script
+cd build % navigate to folder with the script
 build_valkyrie
 ```
 
@@ -138,13 +138,13 @@ build_valkyrie
 
 ## 5. Test the installer on a clean PC
 
-Do this on a machine or VM with **no MATLAB installed**. Revert to the clean snapshot first.
+Do this on a machine or Virtual Machine (VM) with **no MATLAB installed**. Revert to the clean snapshot first.
 
 - [ ] Installer runs from a normal (non-admin) user account, or admin requirement is documented
 - [ ] MATLAB Runtime installs correctly
 - [ ] Start-menu/desktop shortcut created and launches the app
 - [ ] Correct version displayed in the app
-- [ ] Full smoke test (Appendix A) passes on the compiled app
+- [ ] Full smoke test (Appendix A/TEST_CHECKLIST.md) passes on the compiled app
 - [ ] Reading and writing files works — including in the paths a real user would use
 - [ ] Nothing tries to write into `C:\Program Files\` (blocked for standard users)
 - [ ] App closes cleanly, no orphaned processes
@@ -165,17 +165,17 @@ Generate a checksum first:
 Get-FileHash .\Valkyrie_1.4.0_Setup.exe -Algorithm SHA256
 ```
 
-Tag the exact source that was built:
+Tag the exact source that was built. For example:
 
 ```powershell
-git tag -a v1.4.0 -m "Valkyrie 1.4.0"
-git push origin v1.4.0
+git tag -a v1.0.0 -m "Valkyrie 1.0.0"
+git push origin v1.0.0
 ```
 
 Create the release (GitHub → Releases → Draft a new release, or `gh release create`):
 
-- [ ] Tag: `v1.4.0`, target = the commit from Step 1
-- [ ] Title: `Valkyrie 1.4.0`
+- [ ] Tag: `v1.0.0`, target = the commit from Step 1
+- [ ] Title: `Valkyrie 1.0.0`
 - [ ] Notes from the template in Appendix B
 - [ ] Installer attached as a release asset
 - [ ] SHA-256 listed in the notes
@@ -184,7 +184,7 @@ Create the release (GitHub → Releases → Draft a new release, or `gh release 
 - [ ] Publish
 
 ```powershell
-gh release create v1.4.0 .\Valkyrie_1.4.0_Setup.exe --title "Valkyrie 1.4.0" --notes-file notes.md
+gh release create v1.4.0 .\Valkyrie_1.0.0_Setup.exe --title "Valkyrie 1.0.0" --notes-file notes.md
 ```
 
 ---

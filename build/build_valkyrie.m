@@ -13,9 +13,9 @@ function build_valkyrie()
     root      = fileparts(fileparts(mfilename('fullpath')));  % repo root
     appSrc    = fullfile(root, 'app_source');
     appFile   = fullfile(appSrc, 'VALKYRIE.mlapp');
-    configDir = fullfile(root, 'config');
-    helpDir   = fullfile(root, 'helpers');
-    gfxDir    = fullfile(root, 'graphics');
+    configDir = fullfile(appSrc, 'config');    % nested inside app_source
+    helpDir   = fullfile(appSrc, 'helpers');   % nested inside app_source
+    gfxDir    = fullfile(appSrc, 'graphics');  % nested inside app_source
     outDir    = fullfile(root, 'build', 'output');
 
     requiredFolders = {appSrc, configDir, helpDir, gfxDir};
