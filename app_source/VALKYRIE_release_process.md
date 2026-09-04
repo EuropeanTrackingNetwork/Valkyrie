@@ -50,11 +50,12 @@ build/
 
 ## 1. Sync and freeze the source
 
+In the Command Window:
 ```powershell
-git checkout main
-git pull
-git status            # must be clean — no uncommitted changes
-git log -1 --oneline  # record this commit SHA in the release notes
+!git checkout main
+!git pull
+!git status            # must be clean — no uncommitted changes
+!git log -1 --oneline  # record this commit SHA in the release notes
 ```
 
 - [ ] On `main`, up to date with remote
@@ -122,7 +123,7 @@ The script lives at `build/build_valkyrie.m` (full listing in Appendix D — cop
 Run it:
 
 ```matlab
-cd build
+cd app_source/build % navigate to folder with the script
 build_valkyrie
 ```
 
@@ -202,7 +203,7 @@ gh release create v1.4.0 .\Valkyrie_1.4.0_Setup.exe --title "Valkyrie 1.4.0" --n
 
 ## Appendix A — Smoke test checklist (template)
 
-Keep this in the repo as `TEST_CHECKLIST.md` and run it identically from source (Step 3) and on the compiled app (Step 5).
+Keep this in the repo as `TEST_CHECKLIST.md` and run through it the same way on the App Designer (Step 3) and on the compiled app (Step 5).
 
 | # | Action | Expected result | Source | Compiled |
 |---|---|---|---|---|
@@ -210,12 +211,12 @@ Keep this in the repo as `TEST_CHECKLIST.md` and run it identically from source 
 | 2 | Load a known-good input dataset | Loads, summary populated | ☐ | ☐ |
 | 3 | Load a deliberately malformed file | Clear error message, app survives | ☐ | ☐ |
 | 4 | Run the main analysis | Completes, values match reference output | ☐ | ☐ |
-| 5 | Every tab / panel opened | Renders, no errors | ☐ | ☐ |
+| 5 | Every button worked | Renders, no errors | ☐ | ☐ |
 | 6 | Export results | File written, opens correctly | ☐ | ☐ |
-| 7 | Generate a figure / plot | Correct axes, labels, export works | ☐ | ☐ |
-| 8 | Close and relaunch | Clean start, settings retained if applicable | ☐ | ☐ |
+| 7 | Close and relaunch | Clean start, settings retained if applicable | ☐ | ☐ |
+| 8 | Check error log file | Follow the path at start-up and check it has written an error log | ☐ | ☐ |
 
-Keep a small reference dataset with known-correct output in the repo so step 4 is objective rather than "looks about right".
+Use the sample data in /SampleDeployments as well as the VALKYRIE Sample Metadata - Sample Files.csv as metadata.
 
 ## Appendix B — Release notes template
 
