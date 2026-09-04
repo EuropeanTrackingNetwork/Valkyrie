@@ -16,7 +16,10 @@ function build_valkyrie()
     configDir = fullfile(appSrc, 'config');    % nested inside app_source
     helpDir   = fullfile(appSrc, 'helpers');   % nested inside app_source
     gfxDir    = fullfile(appSrc, 'graphics');  % nested inside app_source
-    outDir    = 'O:\Nat-Tech_DTO-BioFlow\VALKYRIE';   % If build fails during write to folder, try changing this to a local C:\Valkyrie_build folder
+    outDir    = 'O:\ValkyrieBuild';   % shared network drive — avoids OneDrive
+                                       % file-locking and Windows path-length limits
+                                       % during installer packaging, and keeps
+                                       % build output accessible to the whole team
 
     requiredFolders = {appSrc, configDir, helpDir, gfxDir};
     for i = 1:numel(requiredFolders)
@@ -32,14 +35,14 @@ function build_valkyrie()
     addpath(appSrc, configDir, helpDir, gfxDir);
 
     ver = valkyrieVersion();
-    fprintf('Building Valkyrie v%s\n', ver);
+    fprintf('Building VALKYRIE v%s\n', ver);
     fprintf('  App:     %s\n', appFile);
     fprintf('  Config:  %s\n', configDir);
     fprintf('  Helpers: %s\n', helpDir);
     fprintf('  Graphics: %s\n', gfxDir);
 
     exeArgs = { ...
-        'ExecutableName',  'Valkyrie', ...
+        'ExecutableName',  'VALKYRIE', ...
         'ExecutableVersion', ver, ...
         'AdditionalFiles', {configDir, helpDir, gfxDir}, ...
         'OutputDir',        fullfile(outDir, 'exe'), ...
@@ -60,14 +63,31 @@ function build_valkyrie()
     res = compiler.build.standaloneWindowsApplication(appFile, exeArgs{:});
 
     % --- package installer ---
-    compiler.package.installer(res, ...
-        'InstallerName',   "Valkyrie_" + ver + "_Setup", ...
-        'ApplicationName', 'Valkyrie', ...
-        'AuthorCompany',   'European Tracking Network', ...
+    exePath = fullfile(outDir, 'exe', 'VALKYRIE.exe');
+
+    installerArgs = { ...
+        'InstallerName',   "VALKYRIE_" + ver + "_Setup", ...
+        'ApplicationName', 'VALKYRIE', ...
+        'AuthorCompany',   'Aarhus University & VLIZ/European Tracking Network', ...
         'Version',          ver, ...
-        'Summary',         'Valkyrie acoustic telemetry application', ...
+        'Summary',         'Click detection extraction and harmonization tool', ...
         'RuntimeDelivery', 'installer', ...   % switch to 'web' for a smaller, online-only installer
-        'OutputDir',        fullfile(outDir, 'installer'));
+        'OutputDir',        fullfile(outDir, 'installer')};
+
+    % InstallerIcon is what actually gets used as the icon for the
+    % desktop/Start Menu shortcut (see icon_48 -> applicationIcon in
+    % compiler.package.installer's source). ExecutableIcon above only
+    % affects the .exe's own embedded icon, not the shortcut.
+    % Shortcut must point at a file that's actually being packaged
+    % (here, the compiled exe) — it is NOT an icon path itself.
+    if isfile(iconFile)
+        installerArgs = [installerArgs, ...
+            {'InstallerIcon', iconFile, ...
+             'AddRemoveProgramsIcon', iconFile, ...
+             'Shortcut', exePath}];
+    end
+
+    compiler.package.installer(res, installerArgs{:});
 
     fprintf('Done.\n');
     fprintf('  Executable: %s\n', fullfile(outDir, 'exe'));
