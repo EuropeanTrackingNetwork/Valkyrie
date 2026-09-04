@@ -1,0 +1,75 @@
+function build_valkyrie()
+% BUILD_VALKYRIE  Compile VALKYRIE.mlapp into a standalone Windows
+% executable and installer. Run from anywhere; paths are resolved
+% relative to this file's location, so this only works correctly
+% if the file stays at <repo root>/build/build_valkyrie.m.
+%
+% Usage:
+%   cd build
+%   build_valkyrie
+%
+% Requires: MATLAB Compiler, MATLAB Compiler SDK (for installer packaging)
+
+    root      = fileparts(fileparts(mfilename('fullpath')));  % repo root
+    appSrc    = fullfile(root, 'app_source');
+    appFile   = fullfile(appSrc, 'VALKYRIE.mlapp');
+    configDir = fullfile(root, 'config');
+    helpDir   = fullfile(root, 'helpers');
+    gfxDir    = fullfile(root, 'graphics');
+    outDir    = fullfile(root, 'build', 'output');
+
+    requiredFolders = {appSrc, configDir, helpDir, gfxDir};
+    for i = 1:numel(requiredFolders)
+        if ~isfolder(requiredFolders{i})
+            error('build_valkyrie:missingFolder', ...
+                'Expected folder not found: %s', requiredFolders{i});
+        end
+    end
+    if ~isfile(appFile)
+        error('build_valkyrie:missingApp', 'App file not found: %s', appFile);
+    end
+
+    addpath(appSrc, configDir, helpDir, gfxDir);
+
+    ver = valkyrieVersion();
+    fprintf('Building Valkyrie v%s\n', ver);
+    fprintf('  App:     %s\n', appFile);
+    fprintf('  Config:  %s\n', configDir);
+    fprintf('  Helpers: %s\n', helpDir);
+    fprintf('  Graphics: %s\n', gfxDir);
+
+    exeArgs = { ...
+        'ExecutableName',  'Valkyrie', ...
+        'ExecutableVersion', ver, ...
+        'AdditionalFiles', {configDir, helpDir, gfxDir}, ...
+        'OutputDir',        fullfile(outDir, 'exe'), ...
+        'Verbose',          'on'};
+
+    % Optional branding assets — only added if present, so the build
+    % doesn't fail before these assets exist.
+    iconFile   = fullfile(gfxDir, 'icon64.png');
+    splashFile = fullfile(gfxDir, 'valkyrieV1.png');
+    if isfile(iconFile)
+        exeArgs = [exeArgs, {'ExecutableIcon', iconFile}];
+    end
+    if isfile(splashFile)
+        exeArgs = [exeArgs, {'ExecutableSplashScreen', splashFile}];
+    end
+
+    % --- compile executable ---
+    res = compiler.build.standaloneWindowsApplication(appFile, exeArgs{:});
+
+    % --- package installer ---
+    compiler.package.installer(res, ...
+        'InstallerName',   "Valkyrie_" + ver + "_Setup", ...
+        'ApplicationName', 'Valkyrie', ...
+        'AuthorCompany',   'European Tracking Network', ...
+        'Version',          ver, ...
+        'Summary',         'Valkyrie acoustic telemetry application', ...
+        'RuntimeDelivery', 'installer', ...   % switch to 'web' for a smaller, online-only installer
+        'OutputDir',        fullfile(outDir, 'installer'));
+
+    fprintf('Done.\n');
+    fprintf('  Executable: %s\n', fullfile(outDir, 'exe'));
+    fprintf('  Installer:  %s\n', fullfile(outDir, 'installer'));
+end

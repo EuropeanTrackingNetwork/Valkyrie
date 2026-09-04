@@ -12,6 +12,7 @@ underDevelopment/
 release/
 resources/
 VALKYRIEapp/
+build/ouput
 
 # Ignore .zip archives
 *.zip
