@@ -1,109 +1,287 @@
-<figure>
-  <img width="4000" height="3397" alt="valkyrieV1alt" src="https://github.com/user-attachments/assets/6ec509c0-e037-456e-8754-0f6a89e98538" />
-  <figcaption>Logo credit: Cara A. Callagher, https://caragallagher.weebly.com</figcaption>
-</figure>
+# Valkyrie — Build & Release Process
 
-# VALKYRIE
-Valkyrie is a tool developed within the DTO BioFlow project (https://dto-bioflow.eu/) to harmonize metadata and porpoise detection data from C‑PODs and F‑PODs. It takes raw detection files (CP1/CP3 or FP1/FP3 pairs) together with standardized deployment metadata and produces ETN‑ready output files that can be uploaded directly to the open repository ETN Underwater Acoustics database.
-Valkyrie validates metadata, matches POD detection files to deployments, extracts detections from raw files, and formats all outputs according to ETN requirements. This produces harmonized metadata alongside minute resolution detections per quality label (high, moderate adn low) for harbour porpoise (_Phocoena phocoena_).
+Repeatable procedure for compiling the MATLAB App Designer app into a Windows installer and publishing it as a GitHub release.
 
-## Installation
-VALKYRIE can be installed on windows platforms. 
-Installation and use of VALKYRIE does not require MATLAB license.
+Repository: `EuropeanTrackingNetwork/Valkyrie` — app source in `/app_source`
 
-1. Download the installer here (https://github.com/EuropeanTrackingNetwork/Valkyrie/releases/download/v0.2/VALKYRIE_v0_2_installer.exe).
-2. Run the installer by double-clicking. It can take a moment to open the installer, as it will automatically install MATLAB Runtime on the first download. When the installation window appears, follow the prompts.
+---
 
-## Usage
-After installation, VALKYRIE is ready to use. However, to be able to upload output files into the ETN database, you need to first register on the ETN database website (https://www.lifewatch.be/etn).
+## 0. One-time setup (do once per build machine, then leave alone)
 
-The steps for using VALKYRIE are:
-1. Register as a user on ETN.
-2. Prepare input files (metadata and raw C-POD or F-POD files).
-3. Upload raw POD files.
-4. Upload metadata file.
-5. Evaluate files matched between both POD files and metadata
-6. Process matched files.
-7. Evaluate output files.
-8. Upload output files to ETN.
+Compiled output depends on the exact toolchain, so the build machine must be pinned and documented.
 
-Note that only files for a single ETN project can be processed in VALKYRIE at a time. 
-Each step is explained in detail below.
+| Item | Value | Notes |
+|---|---|---|
+| MATLAB release | e.g. R2024b | Changing this changes the required MATLAB Runtime on every user's PC |
+| Toolboxes used | list them | Must be licensed on the build machine |
+| MATLAB Compiler | required | `matlabruntime`/`mcc` must be available |
+| Build machine | name/ID | One designated machine, or a documented VM image |
+| Test machine | clean Windows VM, no MATLAB | Keep a pre-install snapshot to roll back to |
 
-### 1. Register as a user and create a project on ETN
-This step is not required to run VALKYRIE. However, to upload files into the ETN database, a user must first register in the ETN system.
-To do that, visit https://www.lifewatch.be/etn/login. Once registered you will need to create a project using this template: https://www.lifewatch.be/etn/assets/docs/ETN-project-template.xlsx.
-A guide to registration and creating a project can be found here: https://www.lifewatch.be/etn/assets/docs/ETN-QuickGuide.pdf.
+Record these in `BUILD_ENVIRONMENT.md` in the repo. Update it whenever the MATLAB release changes.
 
-### 2. Prepare input files
-Input files for VALKYRIE include CP1 and CP3 files, FP1 and FP3 files, and corresponding metadata for each deployment where data is uploaded.
+**Single source of truth for the version number:** `app_source/valkyrieVersion.m`
 
-#### POD files:
-Accepted formats: 
-- .CP1 and .CP3
-- .FP1 and .FP3
+```matlab
+function v = valkyrieVersion()
+    v = "1.4.0";   % <-- the only place the version is edited
+end
+```
 
-VALKYRIE accepts the files generated when data is offloaded from either C-PODs or F-PODs using either CPOD.exe or FPOD.exe.
-To correctly extract the data, files must be provided in pairs, meaning that for C-POD data it is CP1 and CP3 and for F-POD data it is FP1 and FP3. 
+Used in the app's About/title bar and read by the build script (Step 4). This prevents the app, the installer, and the Git tag from drifting apart. This file is committed to GitHub alongside `VALKYRIE.mlapp`.
 
-#### Metadata file
-Accepted format:
-- .CSV
+**Repo layout referenced by the build:**
 
-Metadata includes information on the deployments. Download a template for metadata here https://github.com/EuropeanTrackingNetwork/Valkyrie/blob/main/app_source/SampleDeployments/VALKYRIE%20Sample%20Metadata%20-%20Blank.xlsm.
-The template has built in macros, allowing the user to fill in the date and time for a deployment, which will then automatically be filled in for the Year, Month, Date, Time columns. Be sure to check that the datetime columns have the correct date shown in the format DD/MM/YYYY HH:mm:ss. Note that in order for the template to work as intended, the macros that can automatically split a datetime into separate columns have to be unblocked.
-OBS: once the metadata has been filled out make sure to save the metadata as a copy in the csv format. The macros will only work for future deployments if the original file is saved as an .xlsm file.
+```
+app_source/
+  VALKYRIE.mlapp
+  valkyrieVersion.m
+config/       ← settings/config files the app loads at runtime
+helpers/      ← helper .m functions called by the app
+graphics/     ← icons, images, logos used in the UI, also holds icon64.png / valkyrieV1.png used by the build
+build/
+  build_valkyrie.m   ← committed
+  output/            ← NOT committed, in .gitignore
+```
 
-### 3. Upload raw POD files
-Once you have located the POD files you want to extract, click the upload button. It is possible to select either single files (OBS: make sure to select file pairs, CP1/CP3 or FP1/FP3) or a folder. If a folder is selected all files of the correct format in the folder and its subfolders are selected.
+> If `config`, `helpers`, or `graphics` contain files not on the MATLAB path automatically, the Step 3 dependency check (`requiredFilesAndProducts`) is what confirms the build actually picks them all up — check its output against these three folders specifically.
 
-At this step VALKYRIE checks that files appear in pairs and that there are no duplicate files.
+---
 
-The selected files will be displayed in the window pane for viewing.
+## 1. Sync and freeze the source
 
-### 4. Upload metadata files
-Once POD files are uploaded and validated, you can upload the metadata file. Valkyrie will validate all fields and report any issues.
-VALKYRIE can only process files for a single ETN project at a time. If more than one project appears in the metadata, the user will be prompted to select which one they want to process. 
-Make sure to only process a maximum of 10 deployments in a single run with VALKYRIE, as the output files will otherwise be too large. This will ensure that processing and ingestion into ETN runs smoothly.
+```powershell
+git checkout main
+git pull
+git status            # must be clean — no uncommitted changes
+git log -1 --oneline  # record this commit SHA in the release notes
+```
 
-### 5. Evaluate file match
-When metadata has been validated, the user can click Confirm to inspect the matches between metadata deployments and POD files. 
+- [ ] On `main`, up to date with remote
+- [ ] Working tree clean
+- [ ] Commit SHA recorded
 
-In this window, it will appear green if a deployment has a corresponding file, or in red if not. 
+> Never build from a dirty working tree. If a local change is needed, commit it first — otherwise the released binary corresponds to no known source state.
 
-The user can choose to go back to reupload or continue with the files that did match.
+---
 
-### 6. Process matched files
-Once the user has clicked Process files, VALKYRIE will extract porpoise detections from each POD file pair and format them to match the ETN database.
-This step can take a long time depending on the size and number of files.
+## 2. Decide the version and update the changelog
 
-### 7. Evaluate output files
-Once the processing is done, VALKYRIE will present an overview table of the files that were processed and those that failed with a reason indicated. 
-The user can now download the output files for all the POD files that were successfully extracted. 
+Use semantic versioning: `MAJOR.MINOR.PATCH`
 
-After processing is complete, Valkyrie produces three output files:
+- **MAJOR** — breaking change (input file format, saved-session compatibility, workflow removed)
+- **MINOR** — new feature, backwards compatible
+- **PATCH** — bug fixes only
 
-1. A deployment metadata file containing harmonized information for the processed deployments
-2. A receiver metadata file with information about the POD units used
-3. A combined detections file containing all extracted detections from all uploaded deployments
+Then:
 
-### 8. Upload output files to ETN
-All output files are ready for direct ingestion into the ETN Underwater Acoustics database with no further formatting required.
-The order of input into ETN is:
-1. Upload the metadata receivers
-2. Upload the deployment metadata
-3. Upload the detections
+- [ ] Update `valkyrieVersion.m`
+- [ ] Add a `CHANGELOG.md` entry (Added / Changed / Fixed / Known issues)
+- [ ] If the MATLAB release changed since the last version, flag it — users will need a new MATLAB Runtime
+- [ ] Commit: `git commit -am "Bump version to X.Y.Z"` and push
 
-Check that the metadata and detection data have the correct columns here: https://lifewatch.be/etn/underwater_dataimport
+---
 
-## Troubleshooting
-When uploading data to ETN, ETN will run some checks to ensure the quality of the data that is uploaded. One check is that the metadata has not already been uploaded. This error can occur if you upload a metadata sheet with several deployments and then upload a folder containing a lot of deployments. VALKYRIE will match all metadata and detection files that have been uploaded, and will not take into account that some could have been processed before. If this error occurs at ETN, either remove the deployments manually or rerun files in VALKYRIE, only including the detection files you want to process instead of folders with subfolders.
+## 3. Run-through from source in MATLAB
 
-## Meta
+Run the app from the `.mlapp` in App Designer, on the freshly pulled code.
 
-- License: MIT
-- Please note that by using VALKYRIE and registering for ETN, you agree to the following Data Policy https://www.lifewatch.be/etn/assets/docs/ETN-DataPolicy.pdf.
+- [ ] App opens with no warnings or errors in the Command Window
+- [ ] Version shown in the app matches Step 2
+- [ ] Smoke test: work through the checklist in `TEST_CHECKLIST.md` (see Appendix A)
+- [ ] Every new/changed item from the changelog is exercised
+- [ ] No errors printed at any point
 
-<img width="506" height="107" alt="aulogo_uk_var2_blue" src="https://github.com/user-attachments/assets/bda63fcf-5fd1-4b40-b886-7fb6bbbdb3d9" />
-<img width="1200" height="630" alt="VLIZ_LOGO_OG_TWITTER_1200x630-2573066346" src="https://github.com/user-attachments/assets/190bbe1e-f313-469d-9bb9-bc90a60ca223" />
-<img width="1337" height="429" alt="Logo_BIO-Flow2023_Positive" src="https://github.com/user-attachments/assets/a8309f6e-65e9-4b26-ab82-d158e46e34e6" />
+**Dependency check** — catches files that only exist on your machine:
+
+```matlab
+[files, products] = matlab.codetools.requiredFilesAndProducts('app_source/VALKYRIE.mlapp');
+files'      % all paths must be inside the repo (app_source, config, helpers, graphics)
+products.Name'  % all toolboxes must be in BUILD_ENVIRONMENT.md
+```
+
+- [ ] No dependency outside the repo
+- [ ] Every file returned falls inside `app_source/`, `config/`, `helpers/`, or `graphics/`
+- [ ] No unexpected toolbox
+
+> Anything listed here that lives outside the repo will be missing for users. Either add the file to the repo, or add it explicitly to the build in Step 4.
+
+---
+
+## 4. Compile
+
+Use a **build script**, not the Application Compiler GUI. The GUI hides settings and drifts between releases; a script is committed, reviewed, and identical every time.
+
+The script lives at `build/build_valkyrie.m` (full listing in Appendix D — copy it in as-is). It:
+
+1. Adds `app_source`, `config`, `helpers`, `graphics` to the path so `VALKYRIE.mlapp` and everything it calls are found
+2. Reads the version from `valkyrieVersion.m`
+3. Compiles the standalone executable, explicitly bundling `config`, `helpers`, and `graphics` as additional files (so runtime-loaded assets aren't silently dropped even if the dependency scan misses them, e.g. files loaded by dynamic path rather than direct call)
+4. Packages the installer, named with the version number
+
+Run it:
+
+```matlab
+cd build
+build_valkyrie
+```
+
+- [ ] Build completes with no errors
+- [ ] `mccExcludedFiles.log` reviewed — nothing important excluded
+- [ ] Installer produced with the version number in its filename
+- [ ] `build/output/` is in `.gitignore` (binaries do not belong in Git — they go on the release page)
+
+**On `RuntimeDelivery`:** `'installer'` bundles the MATLAB Runtime (~1–2 GB installer, works offline). `'web'` downloads it during install (small installer, needs internet). Pick one and keep it consistent, or publish both and label them clearly.
+
+---
+
+## 5. Test the installer on a clean PC
+
+Do this on a machine or VM with **no MATLAB installed**. Revert to the clean snapshot first.
+
+- [ ] Installer runs from a normal (non-admin) user account, or admin requirement is documented
+- [ ] MATLAB Runtime installs correctly
+- [ ] Start-menu/desktop shortcut created and launches the app
+- [ ] Correct version displayed in the app
+- [ ] Full smoke test (Appendix A) passes on the compiled app
+- [ ] Reading and writing files works — including in the paths a real user would use
+- [ ] Nothing tries to write into `C:\Program Files\` (blocked for standard users)
+- [ ] App closes cleanly, no orphaned processes
+- [ ] Uninstall works and removes the shortcut
+- [ ] Reinstall over an existing installation works (upgrade path)
+
+> The compiled app is not the same as the app in MATLAB: `pwd` differs, `matlabroot` is gone, no toolbox paths, and anything relying on `which`/`exist`/`addpath` may behave differently. This step is the one that catches those.
+
+If anything fails: fix, commit, and restart from **Step 1**. Do not patch the binary.
+
+---
+
+## 6. Tag and release on GitHub
+
+Generate a checksum first:
+
+```powershell
+Get-FileHash .\Valkyrie_1.4.0_Setup.exe -Algorithm SHA256
+```
+
+Tag the exact source that was built:
+
+```powershell
+git tag -a v1.4.0 -m "Valkyrie 1.4.0"
+git push origin v1.4.0
+```
+
+Create the release (GitHub → Releases → Draft a new release, or `gh release create`):
+
+- [ ] Tag: `v1.4.0`, target = the commit from Step 1
+- [ ] Title: `Valkyrie 1.4.0`
+- [ ] Notes from the template in Appendix B
+- [ ] Installer attached as a release asset
+- [ ] SHA-256 listed in the notes
+- [ ] Required MATLAB Runtime version stated
+- [ ] Marked as pre-release if it is a test build
+- [ ] Publish
+
+```powershell
+gh release create v1.4.0 .\Valkyrie_1.4.0_Setup.exe --title "Valkyrie 1.4.0" --notes-file notes.md
+```
+
+---
+
+## 7. Post-release
+
+- [ ] Download the asset from the release page and install it once more — confirms the upload is not corrupted
+- [ ] Archive the build output (installer + `mccExcludedFiles.log` + `BUILD_ENVIRONMENT.md`) somewhere outside the repo
+- [ ] Announce to users; state explicitly if a new MATLAB Runtime is required
+- [ ] Close the GitHub milestone / linked issues
+- [ ] Update any documentation referring to the version
+
+**Rollback:** if a serious defect appears, mark the release as a pre-release or delete the asset, point users to the previous release, and ship a PATCH version. Never replace the asset of a published version — reused version numbers make support impossible.
+
+---
+
+## Appendix A — Smoke test checklist (template)
+
+Keep this in the repo as `TEST_CHECKLIST.md` and run it identically from source (Step 3) and on the compiled app (Step 5).
+
+| # | Action | Expected result | Source | Compiled |
+|---|---|---|---|---|
+| 1 | Launch app | Main window opens, correct version | ☐ | ☐ |
+| 2 | Load a known-good input dataset | Loads, summary populated | ☐ | ☐ |
+| 3 | Load a deliberately malformed file | Clear error message, app survives | ☐ | ☐ |
+| 4 | Run the main analysis | Completes, values match reference output | ☐ | ☐ |
+| 5 | Every tab / panel opened | Renders, no errors | ☐ | ☐ |
+| 6 | Export results | File written, opens correctly | ☐ | ☐ |
+| 7 | Generate a figure / plot | Correct axes, labels, export works | ☐ | ☐ |
+| 8 | Close and relaunch | Clean start, settings retained if applicable | ☐ | ☐ |
+
+Keep a small reference dataset with known-correct output in the repo so step 4 is objective rather than "looks about right".
+
+## Appendix B — Release notes template
+
+```markdown
+## Valkyrie X.Y.Z
+
+**Requires:** MATLAB Runtime R20XXx (bundled in this installer / downloaded during install)
+**Built from:** commit <sha>
+
+### Added
+-
+
+### Changed
+-
+
+### Fixed
+-
+
+### Known issues
+-
+
+### Installation
+1. Download `Valkyrie_X.Y.Z_Setup.exe` below
+2. Run the installer and follow the prompts
+3. Launch Valkyrie from the Start menu
+
+Existing users: install over the previous version. If the required MATLAB
+Runtime version has changed, the installer will handle it.
+
+SHA-256: `<hash>`
+```
+
+## Appendix C — Release issue checklist
+
+Paste into a GitHub issue per release, so each step is ticked visibly by whoever performed it.
+
+```markdown
+Release: vX.Y.Z — Owner: @______
+
+- [ ] 1. Pulled `main`, clean tree, SHA recorded: ______
+- [ ] 2. Version bumped, changelog updated, pushed
+- [ ] 3. Run-through from source passed + dependency check clean
+- [ ] 4. Compiled via `build_valkyrie.m`, excluded-files log reviewed
+- [ ] 5. Installer tested on clean PC (install, run, smoke test, uninstall)
+- [ ] 6. Tagged, release published with installer + checksum
+- [ ] 7. Asset re-downloaded and verified, build archived, users notified
+```
+## Appendix D — build_valkyrie.m
+
+The authoritative copy lives at `build/build_valkyrie.m` in the repo — that is the file to edit, run, and review in PRs. It:
+
+1. Resolves all paths relative to its own location (`<repo root>/build/build_valkyrie.m`), so it works regardless of who runs it or from where
+2. Verifies `app_source`, `config`, `helpers`, `graphics`, and `VALKYRIE.mlapp` exist before doing anything, with a clear error if not
+3. Adds those four folders to the path and reads the version from `valkyrieVersion.m`
+4. Compiles the executable, bundling `config`, `helpers`, `graphics` as `AdditionalFiles`
+5. Attaches `graphics/icon64.png` as the executable icon and `graphics/valkyrieV1.png` as the splash screen — only if those files exist, and only if `ExecutableIcon` accepts `.png` on your MATLAB release (see caveat below)
+6. Packages the installer, named `Valkyrie_<version>_Setup`
+
+Run it:
+
+```matlab
+cd build
+build_valkyrie
+```
+
+Notes:
+- **Icon format caveat:** `ExecutableIcon` traditionally expects a `.ico` file for Windows executables; some MATLAB releases accept `.png` directly, others don't. If Step 4 errors on that line, convert `icon64.png` to `.ico` and update the path in the script. `ExecutableSplashScreen` accepts `.png` normally.
+- `'RuntimeDelivery', 'installer'` bundles the MATLAB Runtime (large, offline-capable). Switch to `'web'` for a smaller installer that downloads the runtime during setup — see Step 4 in the main process.
+- If `config`, `helpers`, or `graphics` end up empty in a given release, `compiler.build` will error on a missing folder reference — keep at least a placeholder file in each, or guard the `AdditionalFiles` list with an `isfolder` check.
