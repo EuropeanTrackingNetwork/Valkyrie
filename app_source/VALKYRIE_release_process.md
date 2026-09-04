@@ -136,9 +136,10 @@ build_valkyrie
 
 ---
 
-## 5. Test the installer on a clean PC
+## 5. Test the installer (preferably on another PC)
 
-Do this on a machine or Virtual Machine (VM) with **no MATLAB installed**. Revert to the clean snapshot first.
+Best would be to test on a new PC, one that doesn't already have MATLAB installed.
+If that isn't possible, just install and test on the build-PC. 
 
 - [ ] Installer runs from a normal (non-admin) user account, or admin requirement is documented
 - [ ] MATLAB Runtime installs correctly
@@ -159,11 +160,15 @@ If anything fails: fix, commit, and restart from **Step 1**. Do not patch the bi
 
 ## 6. Tag and release on GitHub
 
-Generate a checksum first:
+Generate a checksum first. Open Powershell and make sure to change the path to the new installer file.
+The checksum will generate a sort of fingerprint for the recently build installer file. If something is not working a user can check that the checksum of their downloaded copy is identical to the one in our release.
 
 ```powershell
-Get-FileHash .\Valkyrie_1.4.0_Setup.exe -Algorithm SHA256
+Get-FileHash .\Valkyrie_1.0.0_Setup.exe -Algorithm SHA256
 ```
+When this has run it will generate a very long Hash string that is used in the release.
+A check here could be to download installer after release and check that the checksum matches what was uploaded.
+
 
 Tag the exact source that was built. For example:
 
@@ -174,6 +179,7 @@ git push origin v1.0.0
 
 Create the release (GitHub → Releases → Draft a new release, or `gh release create`):
 
+On GitHub:
 - [ ] Tag: `v1.0.0`, target = the commit from Step 1
 - [ ] Title: `Valkyrie 1.0.0`
 - [ ] Notes from the template in Appendix B
@@ -183,8 +189,10 @@ Create the release (GitHub → Releases → Draft a new release, or `gh release 
 - [ ] Marked as pre-release if it is a test build
 - [ ] Publish
 
+In the powershell: 
+OBS: here the .md document for the release notes have to be generated first, with the information listed above.
 ```powershell
-gh release create v1.4.0 .\Valkyrie_1.0.0_Setup.exe --title "Valkyrie 1.0.0" --notes-file notes.md
+gh release create v1.0.0 .\Valkyrie_1.0.0_Setup.exe --title "Valkyrie 1.0.0" --notes-file notes.md
 ```
 
 ---
@@ -194,7 +202,6 @@ gh release create v1.4.0 .\Valkyrie_1.0.0_Setup.exe --title "Valkyrie 1.0.0" --n
 - [ ] Download the asset from the release page and install it once more — confirms the upload is not corrupted
 - [ ] Archive the build output (installer + `mccExcludedFiles.log` + `BUILD_ENVIRONMENT.md`) somewhere outside the repo
 - [ ] Announce to users; state explicitly if a new MATLAB Runtime is required
-- [ ] Close the GitHub milestone / linked issues
 - [ ] Update any documentation referring to the version
 
 **Rollback:** if a serious defect appears, mark the release as a pre-release or delete the asset, point users to the previous release, and ship a PATCH version. Never replace the asset of a published version — reused version numbers make support impossible.

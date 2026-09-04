@@ -16,7 +16,7 @@ function build_valkyrie()
     configDir = fullfile(appSrc, 'config');    % nested inside app_source
     helpDir   = fullfile(appSrc, 'helpers');   % nested inside app_source
     gfxDir    = fullfile(appSrc, 'graphics');  % nested inside app_source
-    outDir    = fullfile(root, 'build', 'output');
+    outDir    = 'O:\Nat-Tech_DTO-BioFlow\VALKYRIE';   % If build fails during write to folder, try changing this to a local C:\Valkyrie_build folder
 
     requiredFolders = {appSrc, configDir, helpDir, gfxDir};
     for i = 1:numel(requiredFolders)
