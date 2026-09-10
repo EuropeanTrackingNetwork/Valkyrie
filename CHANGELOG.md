@@ -40,12 +40,29 @@ returned by `app_source/valkyrieVersion.m` at that commit.
 ## [1.0.1] - 2026-09-10
 
 ### Added
-- Safe guard at startup to make sure that if the config file, or other files required for the startup function are not available during startup the app will be unusable.
-- Safe guard added in createDateTime.m to give more explicit error if the config file did not load properly.
-- The version of valkyrie that is running/being called will be displayed in the startup window title and at the bottom of the window. It will aslo be saved in the log file.
+- Safeguard at startup: if the configuration file or anything else the startup
+  routine needs is unavailable, the app now reports it immediately and disables
+  the file and metadata buttons, instead of continuing in a half-initialised state.
+- Safeguard in `createDateTime.m`: a clearer error when the configuration did not
+  load, and malformed date/time values are now reported per row with the offending
+  value instead of failing with an opaque conversion error.
+- The running version is shown in the window title and at the bottom of the window,
+  and written to the session log together with the application path.
 
 ### Changed
--
+- `build_valkyrie.m` now verifies before compiling that `valkyrieVersion.m` is
+  detected as a dependency and resolves from `app_source`, and passes it explicitly
+  in `AdditionalFiles`.
 
 ### Fixed
-- The valkyrieVersion.m was incorectly places in the /build folder. It has been moved to the /app_source folder that is part of the compile.
+- `valkyrieVersion.m` was incorrectly placed in `/build` and therefore not
+  guaranteed to be part of the compiled app. Moved to `/app_source`.
+- A failure during startup could leave the app running with no configuration
+  loaded. The first visible symptom was a misleading "Metadata Error: Dot indexing
+  is not supported for variables of this type" when loading a metadata file. Such
+  failures are now reported at launch.
+
+### Note
+- Several distinct installers were circulated as 1.0.0. If you are unsure which
+  build you have, reinstall 1.0.1 — from this release on, every published
+  installer corresponds to a tagged commit.
