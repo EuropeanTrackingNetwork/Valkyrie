@@ -1,124 +1,169 @@
 
 function tbl = createDateTime(tbl, Config)
+ % BUILD_VALKYRIE  Compile VALKYRIE.mlapp into a standalone Windows
+% executable and installer. Run from anywhere; paths are resolved
+% relative to this file's location, so this only works correctly
+% if the file stays at <repo root>/build/build_valkyrie.m.
+%
+% Usage:
+%   cd build
+%   build_valkyrie
+%
+% Requires: MATLAB Compiler, MATLAB Compiler SDK (for installer packaging)
  
-% Collapse date and time columns into ISO 8601 format
-% YYYY-mm-ddThh:mm:ssZ
+    root      = fileparts(fileparts(mfilename('fullpath')));  % repo root
+    buildDir  = fileparts(mfilename('fullpath'));
+    appSrc    = fullfile(root, 'app_source');
+    appFile   = fullfile(appSrc, 'VALKYRIE.mlapp');
+    configDir = fullfile(appSrc, 'config');    % nested inside app_source
+    helpDir   = fullfile(appSrc, 'helpers');   % nested inside app_source
+    gfxDir    = fullfile(appSrc, 'graphics');  % nested inside app_source
+    verFile   = fullfile(appSrc, 'valkyrieVersion.m');  % single source of truth
+    outDir    = 'O:\Nat-Tech_DTO-BioFlow\VALKYRIE';   % shared network drive — avoids OneDrive
+                                       % file-locking and Windows path-length limits
+                                       % during installer packaging, and keeps
+                                       % build output accessible to the whole team
  
-    % --- Input guards -----------------------------------------------------
-    if ~istable(tbl)
-        error('createDateTime:badTable', ...
-            'Internal error: the metadata was not read as a table.');
+    requiredFolders = {appSrc, configDir, helpDir, gfxDir};
+    for i = 1:numel(requiredFolders)
+        if ~isfolder(requiredFolders{i})
+            error('build_valkyrie:missingFolder', ...
+                'Expected folder not found: %s', requiredFolders{i});
+        end
+    end
+    if ~isfile(appFile)
+        error('build_valkyrie:missingApp', 'App file not found: %s', appFile);
     end
  
-    if ~isstruct(Config) || ~isscalar(Config) || ~isfield(Config, 'MetadataSpec') ...
-            || ~isstruct(Config.MetadataSpec)
-        error('createDateTime:badConfig', ...
-            ['The app configuration (metadata_validation.json) was not loaded, ' ...
-             'so the metadata cannot be checked.\nPlease restart VALKYRIE. ' ...
-             'If the problem persists, send the session log to the developers.']);
+    % The app calls valkyrieVersion() in startupFcn, so it MUST be inside
+    % app_source and MUST be packaged with the exe.
+    if ~isfile(verFile)
+        error('build_valkyrie:missingVersionFile', ...
+            ['Version file not found: %s\n' ...
+             'valkyrieVersion.m must live in app_source/ (see ' ...
+             'VALKYRIE_release_process.md) so it is packaged with the app.'], verFile);
     end
  
-% Prefixes:
-specNames = fieldnames(Config.MetadataSpec);
-isDatetime = cellfun(@(f) isfield(Config.MetadataSpec.(f),'Type') && strcmpi(Config.MetadataSpec.(f).Type,'Datetime'), specNames); % columns of type Datetime from JSON file
-prefixColumns = specNames(isDatetime);
-prefixes = string(regexprep(prefixColumns, '^(.*?)(?:_DATE(?:_TIME)?)$', '$1_')); % remove everything after DATE, inclusively
- 
-suffixes = ["YEAR", "MONTH", "DAY", "TIME"];  % The four components
- 
-for p = prefixes(:).'
-    % Build the expected full variable names
-    yearVar  = p + suffixes(1);
-    monthVar = p + suffixes(2);
-    dayVar   = p + suffixes(3);
-    timeVar  = p + suffixes(4); % optional
- 
-    % If any of these columns are missing from tbl, skip it-- handles optional columns
-    if ~all(ismember([yearVar, monthVar, dayVar], tbl.Properties.VariableNames))
-        continue
+    % A leftover copy in build/ shadows app_source/ whenever the build is run
+    % from this folder, which is how the two can silently drift apart.
+    staleVerFile = fullfile(buildDir, 'valkyrieVersion.m');
+    if isfile(staleVerFile)
+        error('build_valkyrie:duplicateVersionFile', ...
+            ['A second copy of valkyrieVersion.m exists at:\n%s\n' ...
+             'Delete it — app_source/valkyrieVersion.m is the single source of truth.'], ...
+            staleVerFile);
     end
  
-    % extract strings and zero-pad MONTH, DAY
-    y = string(tbl.(yearVar));
-    m = compose("%02d", str2double(tbl.(monthVar)));
-    d = compose("%02d", str2double(tbl.(dayVar)));
+    addpath(appSrc, configDir, helpDir, gfxDir);
  
-    hasTime = ismember(timeVar, tbl.Properties.VariableNames); % if it is just date or datetime
+    ver = readVersionFrom(verFile);
+    fprintf('Building VALKYRIE v%s\n', ver);
+    fprintf('  App:      %s\n', appFile);
+    fprintf('  Version:  %s\n', verFile);
+    fprintf('  Config:   %s\n', configDir);
+    fprintf('  Helpers:  %s\n', helpDir);
+    fprintf('  Graphics: %s\n', gfxDir);
  
-    if hasTime
-        % Pad time when present
-        t_raw = string(tbl.(timeVar));
+    exeArgs = { ...
+        'ExecutableName',  'VALKYRIE', ...
+        'ExecutableVersion', ver, ...
+        'AdditionalFiles', {configDir, helpDir, gfxDir, verFile}, ...
+        'OutputDir',        fullfile(outDir, 'exe'), ...
+        'Verbose',          'on'};
  
-        % Add 0 to hour if needed
-        hourToken = extractBefore(t_raw, ":"); % Get everything before the first ":"
-        needsHourPad = strlength(hourToken) == 1 & hourToken ~= ""; % Pad hour token if it is a single digit
-        t_raw(needsHourPad) = "0" + t_raw(needsHourPad);
- 
-        % Add seconds if missing
-        % % Counts the colons; "HH:mm" has 1 and "HH:mm:ss" has 2
-        cCount = count(t_raw, ":");
-        needsSecPad = cCount == 1;
-        t_raw(needsSecPad) = t_raw(needsSecPad)+":00";
- 
-        % final padded time
-        t = t_raw;
- 
-        % Create ISO 8601 datetime
-        dateStrings = y + "-" + m + "-" + d + "T" + t + "Z";
-        outVar = p + "DATE_TIME";
- 
-        dateTime = localToDatetime(dateStrings, outVar);
- 
-        tbl(:, [yearVar, monthVar, dayVar, timeVar]) = []; % remove expanded columns
- 
-    else
-        % Build date-only (no time)
-        dateStrings = y + "-" + m + "-" + d + "T00:00:00Z";
-        outVar = p + "DATE";
- 
-        dateTime = localToDatetime(dateStrings, outVar);
- 
-        tbl(:, [yearVar, monthVar, dayVar]) = []; % remove expanded columns
- 
+    % Optional branding assets — only added if present, so the build
+    % doesn't fail before these assets exist.
+    iconFile   = fullfile(gfxDir, 'icon64.png');
+    splashFile = fullfile(gfxDir, 'valkyrieV1.png');
+    if isfile(iconFile)
+        exeArgs = [exeArgs, {'ExecutableIcon', iconFile}];
+    end
+    if isfile(splashFile)
+        exeArgs = [exeArgs, {'ExecutableSplashScreen', splashFile}];
     end
  
-    % put it into tbl, so it now matches the json config
-    tbl.(outVar) = dateTime;
+    % --- compile executable ---
+    res = compiler.build.standaloneWindowsApplication(appFile, exeArgs{:});
+ 
+    % --- verify the runtime dependencies actually got packaged ---
+    % Cheap insurance against the v1.0.0 failure mode, where a file the app
+    % needs at startup was simply not in the bundle.
+    assertPackaged(res, {'valkyrieVersion.m', 'metadata_validation.json'});
+ 
+    % --- package installer ---
+    exePath = fullfile(outDir, 'exe', 'VALKYRIE.exe');
+ 
+    installerArgs = { ...
+        'InstallerName',   "VALKYRIE_" + ver + "_Setup", ...
+        'ApplicationName', 'VALKYRIE', ...
+        'AuthorCompany',   'Aarhus University & VLIZ/European Tracking Network', ...
+        'Version',          ver, ...
+        'Summary',         'Click detection extraction and harmonization tool', ...
+        'RuntimeDelivery', 'installer', ...   % switch to 'web' for a smaller, online-only installer
+        'OutputDir',        fullfile(outDir, 'installer')};
+ 
+    % InstallerIcon is what actually gets used as the icon for the
+    % desktop/Start Menu shortcut (see icon_48 -> applicationIcon in
+    % compiler.package.installer's source). ExecutableIcon above only
+    % affects the .exe's own embedded icon, not the shortcut.
+    % Shortcut must point at a file that's actually being packaged
+    % (here, the compiled exe) — it is NOT an icon path itself.
+    if isfile(iconFile)
+        installerArgs = [installerArgs, ...
+            {'InstallerIcon', iconFile, ...
+             'AddRemoveProgramsIcon', iconFile, ...
+             'Shortcut', exePath}];
+    end
+ 
+    compiler.package.installer(res, installerArgs{:});
+ 
+    fprintf('Done.\n');
+    fprintf('  Executable: %s\n', fullfile(outDir, 'exe'));
+    fprintf('  Installer:  %s\n', fullfile(outDir, 'installer'));
 end
  
+ 
+function v = readVersionFrom(verFile)
+% Call valkyrieVersion from its own folder, so the current folder cannot
+% shadow it with a different copy.
+    [folder, fname] = fileparts(verFile);
+    oldFolder = cd(folder);
+    restore   = onCleanup(@() cd(oldFolder)); %#ok<NASGU>
+    v = string(feval(fname));
+    if strlength(v) == 0
+        error('build_valkyrie:emptyVersion', 'valkyrieVersion() returned an empty value.');
+    end
 end
  
  
-function dt = localToDatetime(dateStrings, columnLabel)
-% Convert the assembled ISO strings, and report WHICH rows are unusable
-% rather than failing with an opaque conversion error.
- 
-    try
-        dt = datetime(dateStrings, "Format", "yyyy-MM-dd'T'HH:mm:ss'Z'", "TimeZone", "UTC");
-    catch
-        dt = NaT(numel(dateStrings), 1, 'TimeZone', 'UTC');
-        for k = 1:numel(dateStrings)
+function assertPackaged(res, mustContain)
+% Confirm the compiler results list the files the app needs at runtime.
+    packaged = strings(0,1);
+    for f = ["Files","IncludedSupportPackages","AdditionalFiles"]
+        if isprop(res, f) || isfield(res, f)
             try
-                dt(k) = datetime(dateStrings(k), "InputFormat", "yyyy-MM-dd'T'HH:mm:ss'Z'", "TimeZone", "UTC");
+                packaged = [packaged; string(res.(f))(:)]; %#ok<AGROW>
             catch
-                % leave as NaT, reported below
+                % property present but not a string list — ignore
             end
         end
     end
  
-    bad = isnat(dt) & ~ismissing(dateStrings) & strlength(dateStrings) > 0 ...
-        & ~contains(dateStrings, "NaN", 'IgnoreCase', true);
- 
-    if any(bad)
-        idx = find(bad);
-        nShow = min(numel(idx), 10);
-        detail = compose("  row %d: %s", idx(1:nShow), dateStrings(idx(1:nShow)));
-        more = "";
-        if numel(idx) > nShow
-            more = newline + sprintf("  ... and %d more row(s)", numel(idx) - nShow);
-        end
-        error('createDateTime:badDatetime', ...
-            "%s could not be built for %d row(s). Expected YEAR, MONTH, DAY (and TIME as HH:mm or HH:mm:ss):%s%s%s", ...
-            columnLabel, numel(idx), newline, strjoin(detail, newline), more);
+    if isempty(packaged)
+        warning('build_valkyrie:noFileList', ...
+            ['Could not read the packaged file list from the build results, so ' ...
+             'the dependency check was skipped. Verify manually that %s are in the bundle.'], ...
+            strjoin(string(mustContain), ', '));
+        return
     end
+ 
+    for i = 1:numel(mustContain)
+        needle = string(mustContain{i});
+        if ~any(contains(packaged, needle, 'IgnoreCase', true))
+            error('build_valkyrie:missingDependency', ...
+                ['%s does not appear in the packaged files. The compiled app will ' ...
+                 'fail at startup. Check AdditionalFiles and the dependency report.'], needle);
+        end
+    end
+    fprintf('Dependency check passed: %s\n', strjoin(string(mustContain), ', '));
 end
