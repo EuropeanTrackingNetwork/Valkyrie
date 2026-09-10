@@ -26,9 +26,14 @@ function report = verifyMinICIAgainstArchive(newFile, archiveFile, varargin)
 %       .iciChecks        min_ici sanity checks (see below)
 %       .files            the two paths and the parsed name components
 %
+%   Options
+%       'Verbose'    print the report to the command window (default true).
+%                    Set false for batch use via runVerificationBatch, which
+%                    produces one summary table instead of 202 pages of output.
+%
 %   Part of the minICI back-fill toolset.
 
-arguments_in = struct('ReportFile', "", 'MaxSamples', 20, 'ProgressFcn', []);
+arguments_in = struct('ReportFile', "", 'MaxSamples', 20, 'ProgressFcn', [], 'Verbose', true);
 arguments_in = parseOpts(arguments_in, varargin);
 tick = @(msg) reportProgress(arguments_in.ProgressFcn, msg);
 
@@ -134,10 +139,20 @@ hasICI  = ~ismissing(N.min_ici);
 clicks  = N.number_clicks_filtered > 0;
 inWin   = N.datetime >= aWinStart & N.datetime <= aWinEnd;
 
+% De-duplicate the archive by key before counting click-positive rows.
+% A fully-duplicated archive row (same key, identical content, seen with
+% FF2_2019_09_17_POD1981 -- every row present exactly twice) otherwise
+% inflates archiveClickPositive by whatever factor the archive is duplicated,
+% which fails the invariant against a correct new file for a reason that has
+% nothing to do with the new file at all.
+[uniqA, ia] = unique(kA, 'stable');
+archiveClickPositiveUnique = sum(A.number_clicks_filtered(ia) > 0);
+
 report.iciChecks = struct( ...
     'nWithICI',              sum(hasICI), ...
     'nWithICI_inWindow',     sum(hasICI & inWin), ...
-    'archiveClickPositive',  sum(A.number_clicks_filtered > 0), ...
+    'archiveClickPositive',  archiveClickPositiveUnique, ...
+    'archiveClickPositiveRaw', sum(A.number_clicks_filtered > 0), ...
     'clicksButNoICI',        sum(clicks & ~hasICI), ...
     'iciButNoClicks',        sum(~clicks & hasICI), ...
     'minValue',              min(N.min_ici(hasICI)), ...
@@ -156,7 +171,9 @@ report.ok = report.counts.onlyInArchive == 0 ...
     && report.iciChecks.iciButNoClicks == 0 ...
     && report.iciChecks.countInvariantOK;
 
-printReport(report);
+if arguments_in.Verbose
+    printReport(report);
+end
 
 if strlength(arguments_in.ReportFile) > 0
     writetable(report.columns, arguments_in.ReportFile);
@@ -235,6 +252,13 @@ fprintf('POD id  : new %d / archive %d\n', r.files.newName.podId, r.files.archiv
 fprintf('window  : archive %s -> %s\n', c.archiveWindow(1), c.archiveWindow(2));
 fprintf('          new     %s -> %s\n', c.newWindow(1), c.newWindow(2));
 fprintf('rows    : archive %d, new %d, shared keys %d\n', c.archiveRows, c.newRows, c.sharedKeys);
+if c.duplicateKeysArchive > 0
+    fprintf(['!! archive has %d duplicate row(s) (same datetime+quality+species) -- this is a\n' ...
+             '   data-quality property of the ARCHIVE file itself, not the new output. The\n' ...
+             '   min_ici invariant below is corrected for this; the raw (uncorrected) archive\n' ...
+             '   click-positive count is shown too so the correction is visible, not silent.\n'], ...
+             c.duplicateKeysArchive);
+end
 fprintf('missing from new (FAIL if >0)   : %d\n', c.onlyInArchive);
 fprintf('extra inside window (FAIL if >0): %d\n', c.extrasInsideWindow);
 fprintf('extra before / after window     : %d / %d  (expected: POD on/off periods)\n', ...
@@ -245,8 +269,11 @@ if ~isempty(r.archiveOnlyColumns)
     fprintf('columns in archive but not in minICI output: %s\n', strjoin(r.archiveOnlyColumns, ', '));
 end
 i = r.iciChecks;
-fprintf('\nmin_ici: %d values (%d in window); archive click-positive rows %d; invariant %s\n', ...
+fprintf('\nmin_ici: %d values (%d in window); archive click-positive rows %d (dedup); invariant %s\n', ...
     i.nWithICI, i.nWithICI_inWindow, i.archiveClickPositive, string(i.countInvariantOK));
+if i.archiveClickPositiveRaw ~= i.archiveClickPositive
+    fprintf('         (raw, undeduplicated archive count was %d)\n', i.archiveClickPositiveRaw);
+end
 fprintf('         clicks but no ICI %d, ICI but no clicks %d\n', i.clicksButNoICI, i.iciButNoClicks);
 fprintf('         range %g .. %g us (median %g)\n', i.minValue, i.maxValue, i.medianValue);
 fprintf('\nVERDICT: %s\n\n', string(r.ok));

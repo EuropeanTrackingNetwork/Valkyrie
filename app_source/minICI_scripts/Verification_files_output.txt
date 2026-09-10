@@ -1,0 +1,242 @@
+4 processed file(s) have no raw file in window -- likely missing raw data
+rather than a matching failure (up to 10 shown):
+            procName                                                                                              note                                                                                 
+    _________________________    ______________________________________________________________________________________________________________________________________________________________________
+
+    "8009_2019_02_26_POD1687"    "10 raw file(s) for this POD, none inside the processed date +/- 21d; nearest is 101 days away -- raw data for this deployment looks absent from the searched folders"
+    "8010_2019_02_26_POD1981"    "12 raw file(s) for this POD, none inside the database window; nearest is 101 days away -- raw data for this deployment looks absent from the searched folders"       
+    "8014_2019_01_25_POD1993"    "6 raw file(s) for this POD, none inside the database window; nearest is 69 days away -- raw data for this deployment looks absent from the searched folders"         
+    "FB3_2015_04_20_POD1694"     "7 raw file(s) for this POD, none inside the processed date +/- 21d; nearest is 60 days away -- raw data for this deployment looks absent from the searched folders"  
+
+
+4 file(s) still need manual resolution:
+            procName              status                                                               note                                                         
+    ________________________    ___________    _____________________________________________________________________________________________________________________
+
+    "FF2_2019_09_17_POD1981"    "ambiguous"    "database window; 2 parts (file01/01)"                                                                               
+    "GB4_2012_02_12_POD1690"    "ambiguous"    "2 deployment groups equally 1 days from the processed date (GB4C|2012-02-11 / KALF3B|2012-02-11) -- resolve by hand"
+    "GB5_2012_02_12_POD1687"    "ambiguous"    "2 deployment groups equally 1 days from the processed date (GB5C|2012-02-11 / KALF4C|2012-02-11) -- resolve by hand"
+    "LB3_2013_02_12_POD1976"    "ambiguous"    "2 deployment groups equally 6 days from the processed date (LB3A|2013-02-06 / LB3E|2013-02-06) -- resolve by hand"  
+
+=== minICI verification ===
+new     : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\minICI_trial\FF1_2013_02_12_POD1986_minICI.csv
+archive : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\2011-2017\Detection files\Split files\FF1_2013_02_12_POD1986.csv
+POD id  : new 1986 / archive 1986
+window  : archive 2013-02-12 17:10:00 -> 2013-03-10 00:00:00
+          new     2013-02-06 14:22:00 -> 2013-03-15 09:41:00
+rows    : archive 109233, new 159000, shared keys 109233
+missing from new (FAIL if >0)   : 0
+extra inside window (FAIL if >0): 0
+extra before / after window     : 26424 / 23343  (expected: POD on/off periods)
+
+               column                 status      mismatches    pctMismatch
+    ____________________________    __________    __________    ___________
+
+    "temperature"                   "compared"        0              0     
+    "angle"                         "compared"        0              0     
+    "number_clicks_total"           "compared"        0              0     
+    "number_clicks_filtered"        "compared"        0              0     
+    "detection_positive_minutes"    "compared"        0              0     
+    "milliseconds"                  "compared"        0              0     
+    "time_lost_percentage"          "compared"        0              0     
+    "recorded"                      "compared"        0              0     
+    "species"                       "compared"        0              0     
+
+columns in archive but not in minICI output: detection_bpm
+
+min_ici: 26842 values (26224 in window); archive click-positive rows 26224; invariant true
+         clicks but no ICI 0, ICI but no clicks 0
+         range 850 .. 857175 us (median 22400)
+
+VERDICT: true
+
+
+=== minICI verification ===
+new     : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\minICI_trial\FF3_2013_02_13_POD1984_minICI.csv
+archive : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\2011-2017\Detection files\Split files\FF3_2013_02_13_POD1984.csv
+POD id  : new 1984 / archive 1984
+window  : archive 2013-02-13 08:29:00 -> 2013-03-06 00:00:00
+          new     2013-02-06 14:19:00 -> 2013-04-25 09:14:00
+rows    : archive 89196, new 336048, shared keys 89196
+missing from new (FAIL if >0)   : 0
+extra inside window (FAIL if >0): 0
+extra before / after window     : 29190 / 217662  (expected: POD on/off periods)
+
+               column                 status      mismatches    pctMismatch
+    ____________________________    __________    __________    ___________
+
+    "temperature"                   "compared"        0              0     
+    "angle"                         "compared"        0              0     
+    "number_clicks_total"           "compared"        0              0     
+    "number_clicks_filtered"        "compared"        0              0     
+    "detection_positive_minutes"    "compared"        0              0     
+    "milliseconds"                  "compared"        0              0     
+    "time_lost_percentage"          "compared"        0              0     
+    "recorded"                      "compared"        0              0     
+    "species"                       "compared"        0              0     
+
+columns in archive but not in minICI output: detection_bpm
+
+min_ici: 1151 values (1079 in window); archive click-positive rows 1079; invariant true
+         clicks but no ICI 0, ICI but no clicks 0
+         range 1130 .. 672280 us (median 28355)
+
+VERDICT: true
+
+
+=== minICI verification ===
+new     : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\minICI_trial\LB1_2013_02_12_POD1988_minICI.csv
+archive : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\2011-2017\Detection files\Split files\LB1_2013_02_12_POD1988.csv
+POD id  : new 1988 / archive 1988
+window  : archive 2013-02-12 13:05:00 -> 2013-04-08 00:00:00
+          new     2013-02-06 14:28:00 -> 2013-04-25 09:43:00
+rows    : archive 235248, new 336108, shared keys 235248
+missing from new (FAIL if >0)   : 0
+extra inside window (FAIL if >0): 0
+extra before / after window     : 25671 / 75189  (expected: POD on/off periods)
+
+               column                 status      mismatches    pctMismatch
+    ____________________________    __________    __________    ___________
+
+    "temperature"                   "compared"        0              0     
+    "angle"                         "compared"        0              0     
+    "number_clicks_total"           "compared"        0              0     
+    "number_clicks_filtered"        "compared"        0              0     
+    "detection_positive_minutes"    "compared"        0              0     
+    "milliseconds"                  "compared"        0              0     
+    "time_lost_percentage"          "compared"        0              0     
+    "recorded"                      "compared"        0              0     
+    "species"                       "compared"        0              0     
+
+columns in archive but not in minICI output: detection_bpm
+
+min_ici: 37106 values (35520 in window); archive click-positive rows 35520; invariant true
+         clicks but no ICI 0, ICI but no clicks 0
+         range 900 .. 931160 us (median 33305)
+
+VERDICT: true
+
+=== minICI verification ===
+new     : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\minICI_trial\LB1_2013_06_28_POD899_minICI.csv
+archive : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\2011-2017\Detection files\Split files\LB1_2013_06_28_POD899.csv
+POD id  : new 899 / archive 899
+window  : archive 2013-06-28 10:53:00 -> 2013-10-08 00:00:00
+          new     2013-06-25 11:33:00 -> 2013-10-25 10:48:00
+rows    : archive 438684, new 526908, shared keys 438684
+missing from new (FAIL if >0)   : 0
+extra inside window (FAIL if >0): 0
+extra before / after window     : 12840 / 75384  (expected: POD on/off periods)
+
+               column                 status      mismatches    pctMismatch
+    ____________________________    __________    __________    ___________
+
+    "temperature"                   "compared"        0              0     
+    "angle"                         "compared"        0              0     
+    "number_clicks_total"           "compared"        0              0     
+    "number_clicks_filtered"        "compared"        0              0     
+    "detection_positive_minutes"    "compared"        0              0     
+    "milliseconds"                  "compared"        0              0     
+    "time_lost_percentage"          "compared"        0              0     
+    "recorded"                      "compared"        0              0     
+    "species"                       "compared"        0              0     
+
+columns in archive but not in minICI output: detection_bpm
+
+min_ici: 112703 values (111038 in window); archive click-positive rows 111038; invariant true
+         clicks but no ICI 0, ICI but no clicks 0
+         range 680 .. 912250 us (median 32665)
+
+VERDICT: true
+
+
+=== minICI verification ===
+new     : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\minICI_trial\RS2_2014_10_22_POD907_minICI.csv
+archive : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\2011-2017\Detection files\Split files\RS2_2014_10_22_POD907.csv
+POD id  : new 907 / archive 907
+window  : archive 2014-10-22 08:40:00 -> 2015-04-21 00:00:00
+          new     2014-10-21 10:49:00 -> 2015-05-11 07:52:00
+rows    : archive 780363, new 872112, shared keys 780363
+missing from new (FAIL if >0)   : 0
+extra inside window (FAIL if >0): 0
+extra before / after window     : 3933 / 87816  (expected: POD on/off periods)
+
+               column                 status      mismatches    pctMismatch
+    ____________________________    __________    __________    ___________
+
+    "temperature"                   "compared"        0              0     
+    "angle"                         "compared"        0              0     
+    "number_clicks_total"           "compared"        0              0     
+    "number_clicks_filtered"        "compared"        0              0     
+    "detection_positive_minutes"    "compared"        0              0     
+    "milliseconds"                  "compared"        0              0     
+    "time_lost_percentage"          "compared"        0              0     
+    "recorded"                      "compared"        0              0     
+    "species"                       "compared"        0              0     
+
+columns in archive but not in minICI output: detection_bpm
+
+min_ici: 10807 values (10660 in window); archive click-positive rows 10660; invariant true
+         clicks but no ICI 0, ICI but no clicks 0
+         range 790 .. 970110 us (median 45870)
+
+VERDICT: true
+
+
+=== minICI verification ===
+new     : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\minICI_trial\KF1_2016_02_05_POD907_minICI.csv
+archive : O:\Tech_Novana-Marsvin\DTO\VALKYRIEoutput\2011-2017\Detection files\Split files\KF1_2016_02_05_POD907.csv
+POD id  : new 907 / archive 907
+window  : archive 2016-02-05 10:41:00 -> 2016-06-28 00:00:00
+          new     2016-02-04 14:13:00 -> 2016-07-01 07:38:00
+rows    : archive 620160, new 638178, shared keys 620160
+missing from new (FAIL if >0)   : 0
+extra inside window (FAIL if >0): 0
+extra before / after window     : 3684 / 14334  (expected: POD on/off periods)
+
+               column                 status      mismatches    pctMismatch
+    ____________________________    __________    __________    ___________
+
+    "temperature"                   "compared"        0              0     
+    "angle"                         "compared"        0              0     
+    "number_clicks_total"           "compared"        0              0     
+    "number_clicks_filtered"        "compared"        0              0     
+    "detection_positive_minutes"    "compared"        0              0     
+    "milliseconds"                  "compared"        0              0     
+    "time_lost_percentage"          "compared"        0              0     
+    "recorded"                      "compared"        0              0     
+    "species"                       "compared"        0              0     
+
+columns in archive but not in minICI output: detection_bpm
+
+min_ici: 12612 values (12535 in window); archive click-positive rows 12535; invariant true
+         clicks but no ICI 0, ICI but no clicks 0
+         range 870 .. 960110 us (median 78822.5)
+
+VERDICT: true
+
+rep = extractMinICIUpdates("O:\Tech_Novana-Marsvin\DTO\novana-bpm.csv", Xtrial, "trial_updates.csv", ...
+    'BigDelimiter', ',', 'BigDatetimeFormat', 'yyyy-MM-dd HH:mm:ss');
+
+
+=== min_ici extraction ===
+min_ici values offered          : 62823
+rows written to trial_updates.csv : 62823
+offered but no database row     : 0   (must be 0)
+keys hitting >1 id_pk           : 0   (must be 0)
+rejected by clicks/ms check     : 0   (must be 0)
+click-positive db rows in scope : 62823   (should equal rows written)
+
+
+Files that have duplicate rows:
+NOT yet in database -- fixable now, before upload: 9
+    "FF1_2020_03_20_POD1739"
+    "FF2_2020_03_20_POD918"
+    "FF4_2020_03_20_POD1989"
+    "FF5_2020_03_20_POD1583"
+    "GB1_2012_11_15_POD917"
+    "LB2_2019_09_17_POD1690"
+    "LB3_2020_03_19_POD1992"
+    "LB4_2020_03_19_POD909"
+    "LB5_2020_03_19_POD1763"
+
+

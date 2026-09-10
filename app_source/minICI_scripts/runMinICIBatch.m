@@ -34,26 +34,92 @@ function manifest = runMinICIBatch(fileList, outFolder, varargin)
 %                       fullfile(outFolder,"minICI_batch_manifest.csv")
 %       'StopOnError'   abort on the first failure instead of logging (default false)
 %       'MaxFiles'      process at most N files -- use a small value for a trial run
+%       'StageLocally'  copy each raw file to local disk before calling the
+%                       workflow, run against the local copy, then copy just the
+%                       (small) CSV result back to outFolder (default false).
+%                       Worth turning on when fileList lives on a network/VPN
+%                       drive: most raw-file readers do many scattered small
+%                       reads inside the file, and that pattern is dominated by
+%                       per-operation round-trip latency over a network link,
+%                       not bandwidth. A single bulk sequential copy pays for
+%                       the network cost once instead of once per internal
+%                       read, which is often the actual cause when a single
+%                       file takes an unexpectedly long time to process despite
+%                       not being unusually large.
+%       'LocalStageFolder' where local copies go (default a subfolder of
+%                       tempdir()). Cleaned up per file regardless of success.
+%       'CopyRetries'   retries for each network<->local copy under
+%                       'StageLocally' before giving up (default 10). Each
+%                       retry uses robocopy's /Z (restartable mode) on
+%                       Windows, which RESUMES an interrupted copy instead of
+%                       restarting from byte 0 -- without it, a connection
+%                       that reliably dies ~60-70s into a large transfer makes
+%                       zero net progress no matter how many retries you allow,
+%                       since every attempt dies at the same point. With /Z,
+%                       retries are cumulative.
+%       'CopyRetryWaitSec' seconds between copy retries (default 10)
+%       'PairPaths'     table with columns rawPath, pairPath -- when the file
+%                       currently being processed matches a rawPath here, its
+%                       pairPath is passed as minICI_workflow's 'PairPath'.
+%                       comp (findCompanionRawFiles output) renamed to
+%                       {rawPath, pairPath}, filtered to companionStatus=="found",
+%                       is exactly this table.
+%       'MatchNames'    table with columns rawPath, matchName -- passed as
+%                       minICI_workflow's 'MatchName', the string novana-bpm
+%                       actually stores for this deployment (which can differ
+%                       from the raw file's own base name -- exactly the
+%                       problem matchRawToProcessed's procName solves). Build
+%                       from R directly: R(:, {'rawPath','procName'}) renamed
+%                       to {rawPath, matchName}. Not required for correctness
+%                       of anything downstream in this toolset (extraction
+%                       keys off deployment_fk from the crosswalk, never off
+%                       the output file's own filename column), but worth
+%                       setting so the output file is self-consistent.
+%       'WorkflowVerbose' passed as minICI_workflow's 'Verbose' (default true)
 %       'ProgressFcn'   handle called as fcn(fraction, message)
 %
 %   WorkflowMode
-%       "writes_file"   called as WorkflowFcn(inPath, outPath); the function is
-%                       expected to write outPath itself
-%       "returns_table" called as T = WorkflowFcn(inPath); this function writes
-%                       T to outPath with writetable
-%       "auto"          tries "writes_file" first, and if outPath was not created
-%                       but a table came back, treats it as "returns_table".
-%                       Set the mode explicitly once you know which it is.
+%       "minici_workflow" (default) matches minICI_workflow's actual, confirmed
+%                       signature: S = minICI_workflow(inPath, 'PairPath', p,
+%                       'OutputCsv', outPath, 'MatchName', m, 'Verbose', v).
+%                       ONE positional argument, everything else name-value;
+%                       it writes outPath itself via 'OutputCsv' and returns a
+%                       struct (not a table) that this mode uses for the
+%                       manifest's row count (S.n_rows) when available.
+%       "writes_file"   generic fallback: called as WorkflowFcn(inPath, outPath).
+%                       Not minICI_workflow's real signature -- use
+%                       "minici_workflow" for that. Kept for other functions.
+%       "returns_table" generic fallback: T = WorkflowFcn(inPath); this mode
+%                       writes T to outPath with writetable.
+%       "auto"          tries "writes_file" first, falls back to
+%                       "returns_table". Avoid with minICI_workflow specifically
+%                       -- neither generic mode matches its real signature, and
+%                       the very error that triggers the fallback here is
+%                       usually the real problem, not something to fall through.
 %
 %   ALWAYS trial-run first: runMinICIBatch(reprocess, out, 'MaxFiles', 3), then
 %   check those three with verifyMinICIAgainstArchive before turning it loose.
 %
 %   Part of the minICI back-fill toolset.
 
-opts = struct('WorkflowFcn', [], 'WorkflowMode', "auto", 'Suffix', "_minICI", ...
+opts = struct('WorkflowFcn', [], 'WorkflowMode', "minici_workflow", 'Suffix', "_minICI", ...
     'Overwrite', false, 'ManifestFile', "", 'StopOnError', false, ...
-    'MaxFiles', Inf, 'ProgressFcn', []);
+    'MaxFiles', Inf, 'StageLocally', false, 'LocalStageFolder', "", ...
+    'CopyRetries', 10, 'CopyRetryWaitSec', 10, 'PairPaths', [], 'MatchNames', [], ...
+    'WorkflowVerbose', true, 'ProgressFcn', []);
 opts = parseOpts(opts, varargin);
+
+if ~isempty(opts.PairPaths) && ~istable(opts.PairPaths)
+    error('runMinICIBatch:badPairPaths', ...
+        '''PairPaths'' must be a table with columns rawPath, pairPath (e.g. comp renamed).');
+end
+
+if opts.StageLocally && strlength(opts.LocalStageFolder) == 0
+    opts.LocalStageFolder = string(fullfile(tempdir, "minICI_stage"));
+end
+if opts.StageLocally && ~isfolder(opts.LocalStageFolder)
+    mkdir(opts.LocalStageFolder);
+end
 
 if isempty(opts.WorkflowFcn)
     if exist('minICI_workflow', 'file') ~= 2
@@ -92,10 +158,25 @@ end
 
 rows = cell(nRun,1);
 tBatch = tic;
+isMinICIMode = lower(string(opts.WorkflowMode)) == "minici_workflow";
 for k = 1:nRun
     inPath = fileList(k);
     [~, base] = fileparts(inPath);
-    outPath = string(fullfile(outFolder, base + opts.Suffix + ".csv"));
+    pairPath  = lookupPairPath(opts.PairPaths, inPath, "pairPath");
+    matchName = lookupPairPath(opts.MatchNames, inPath, "matchName");
+
+    if isMinICIMode
+        % minICI_workflow treats 'OutputCsv' as a FOLDER and names the file
+        % itself as <MatchName or its own base name>_minICI.csv inside it --
+        % NOT the exact file path passed in, despite the docstring calling it
+        % a "CSV path". Predict that name so skip-if-exists and the manifest
+        % track the file it will actually write.
+        effectiveName = base;
+        if strlength(matchName) > 0, effectiveName = matchName; end
+        outPath = string(fullfile(outFolder, effectiveName + "_minICI.csv"));
+    else
+        outPath = string(fullfile(outFolder, base + opts.Suffix + ".csv"));
+    end
 
     reportProgress(opts.ProgressFcn, k/nRun, ...
         sprintf('[%d/%d] %s', k, nRun, base));
@@ -112,8 +193,54 @@ for k = 1:nRun
     end
 
     tFile = tic;
+    localIn = ""; localOut = ""; localPair = "";
+    nRowsFromS = NaN;
     try
-        runWorkflow(opts.WorkflowFcn, opts.WorkflowMode, inPath, outPath);
+        if opts.StageLocally
+            [~, ib, ie] = fileparts(inPath);
+            localIn = string(fullfile(opts.LocalStageFolder, ib + ie));
+            try
+                copyFileRobust(inPath, localIn, opts.CopyRetries, opts.CopyRetryWaitSec);
+            catch cerr
+                error('runMinICIBatch:stageInFailed', ...
+                    'staging raw file in from network drive failed: %s', cerr.message);
+            end
+
+            usePair = pairPath;
+            if strlength(pairPath) > 0
+                [~, pb, pe] = fileparts(pairPath);
+                localPair = string(fullfile(opts.LocalStageFolder, pb + pe));
+                try
+                    copyFileRobust(pairPath, localPair, opts.CopyRetries, opts.CopyRetryWaitSec);
+                    usePair = localPair;
+                catch cerr
+                    error('runMinICIBatch:stageInFailed', ...
+                        'staging pair file in from network drive failed: %s', cerr.message);
+                end
+            end
+
+            if isMinICIMode
+                effectiveName = base;
+                if strlength(matchName) > 0, effectiveName = matchName; end
+                localOut = string(fullfile(opts.LocalStageFolder, effectiveName + "_minICI.csv"));
+            else
+                localOut = string(fullfile(opts.LocalStageFolder, base + opts.Suffix + ".csv"));
+            end
+            nRowsFromS = runWorkflow(opts.WorkflowFcn, opts.WorkflowMode, localIn, localOut, ...
+                usePair, matchName, opts.WorkflowVerbose);
+
+            if isfile(localOut)
+                try
+                    copyFileRobust(localOut, outPath, opts.CopyRetries, opts.CopyRetryWaitSec);
+                catch cerr
+                    error('runMinICIBatch:stageOutFailed', ...
+                        'copying result back to the network drive failed: %s', cerr.message);
+                end
+            end
+        else
+            nRowsFromS = runWorkflow(opts.WorkflowFcn, opts.WorkflowMode, inPath, outPath, ...
+                pairPath, matchName, opts.WorkflowVerbose);
+        end
         el = toc(tFile);
 
         if ~isfile(outPath)
@@ -121,17 +248,20 @@ for k = 1:nRun
                 "workflow returned without writing an output file");
         else
             d = dir(outPath);
-            rows{k} = logRow(mfid, inPath, base, outPath, "done", ...
-                countDataRows(outPath), d.bytes, el, "");
+            nRows = nRowsFromS;
+            if isnan(nRows), nRows = countDataRows(outPath); end
+            rows{k} = logRow(mfid, inPath, base, outPath, "done", nRows, d.bytes, el, "");
         end
     catch err
         el = toc(tFile);
         rows{k} = logRow(mfid, inPath, base, outPath, "error", NaN, NaN, el, err.message);
         if opts.StopOnError
+            cleanupLocal(localIn, localOut, localPair);
             manifest = vertcat(rows{1:k});
             rethrow(err);
         end
     end
+    cleanupLocal(localIn, localOut, localPair);
 end
 
 manifest = vertcat(rows{:});
@@ -139,23 +269,148 @@ printSummary(manifest, toc(tBatch), opts.ManifestFile);
 end
 
 % =======================================================================
-function runWorkflow(fcn, mode, inPath, outPath)
-switch lower(string(mode))
-    case "writes_file"
-        fcn(inPath, outPath);
-    case "returns_table"
-        T = fcn(inPath);
-        writetable(T, outPath);
-    case "auto"
+function copyFileRobust(src, dst, maxRetries, waitSec)
+%COPYFILEROBUST Copy one file, surviving transient network drive errors.
+%
+%plain copyfile has no retry logic, so a brief VPN/SMB hiccup partway through a
+%multi-minute copy of a large raw file kills the whole transfer with an opaque
+%"unexpected network error". On Windows this uses robocopy with /Z
+%(restartable mode) and built-in retry (/R) + wait-between (/W). /Z matters
+%more than the retry count: without it, a connection that reliably dies at a
+%fixed point in the transfer (a session/idle timeout, not random packet loss)
+%makes every retry restart from byte 0 and die at the same point again --
+%observed in practice as 6 retries, 6 failures at ~60-70s each, zero net
+%progress. /Z resumes from wherever the previous attempt stopped, so retries
+%accumulate progress instead of repeating the same failed segment. Elsewhere
+%(non-Windows) this retries copyfile itself with a pause between attempts,
+%which has no equivalent resume capability.
+if ispc
+    [srcDir, srcName, srcExt] = fileparts(src);
+    [dstDir, ~, ~] = fileparts(dst);
+    if ~isfolder(dstDir), mkdir(dstDir); end
+    fname = srcName + srcExt;
+
+    cmd = sprintf('robocopy "%s" "%s" "%s" /Z /J /R:%d /W:%d /NFL /NDL /NJH /NJS', ...
+        srcDir, dstDir, fname, maxRetries, waitSec);
+    [status, cmdout] = system(cmd);
+    % robocopy's exit code is a bitmask where 0-7 mean success (0 = nothing
+    % copied because it already matched, 1 = copied OK); 8+ is a real failure.
+    % This is NOT the usual "0 = success" convention -- do not simplify.
+    if status >= 8
+        error('copyFileRobust:robocopyFailed', 'robocopy exit code %d: %s', status, cmdout);
+    end
+    destFile = fullfile(dstDir, fname);
+    if ~isfile(destFile)
+        error('copyFileRobust:notWritten', 'robocopy reported success but %s was not created', destFile);
+    end
+    if destFile ~= string(dst)
+        movefile(destFile, dst);   % dst may ask for a different filename than the source
+    end
+else
+    lastErr = [];
+    for attempt = 1:maxRetries
         try
-            out = fcn(inPath, outPath);
+            [ok, msg] = copyfile(src, dst);
+            if ok, return, end
+            lastErr = MException('copyFileRobust:copyfileFailed', '%s', msg);
+        catch lastErr
+        end
+        if attempt < maxRetries, pause(waitSec); end
+    end
+    rethrow_or_throw(lastErr);
+end
+end
+
+function rethrow_or_throw(e)
+% e may be a freshly built MException (copyfile returned ok=false without
+% erroring) or one actually caught (copyfile threw). throw() accepts both;
+% rethrow() only accepts the latter and errors on the former.
+throw(e);
+end
+
+function cleanupLocal(localIn, localOut, localPair)
+if nargin < 3, localPair = ""; end
+if strlength(localIn) > 0 && isfile(localIn)
+    try, delete(localIn); catch, end
+end
+if strlength(localOut) > 0 && isfile(localOut)
+    try, delete(localOut); catch, end
+end
+if strlength(localPair) > 0 && isfile(localPair)
+    try, delete(localPair); catch, end
+end
+end
+
+function v = lookupPairPath(tbl, inPath, valueCol)
+v = "";
+if isempty(tbl), return, end
+if ~ismember(valueCol, string(tbl.Properties.VariableNames))
+    error('runMinICIBatch:badLookupTable', ...
+        'Expected a column named ''%s'' (plus ''rawPath'') in this table.', valueCol);
+end
+hit = find(tbl.rawPath == inPath, 1);
+if ~isempty(hit), v = tbl.(valueCol)(hit); end
+end
+
+function nRows = runWorkflow(fcn, mode, inPath, outPath, pairPath, matchName, verbose)
+if nargin < 5, pairPath = ""; end
+if nargin < 6, matchName = ""; end
+if nargin < 7, verbose = true; end
+nRows = NaN;
+
+switch lower(string(mode))
+    case "minici_workflow"
+        % S = minICI_workflow(inPath, 'PairPath', p, 'OutputCsv', outFolder,
+        %                      'MatchName', m, 'Verbose', v)
+        % ONE positional argument; everything else is name-value. Despite the
+        % docstring calling 'OutputCsv' a "CSV path", it is actually treated
+        % as a FOLDER: minICI_workflow builds its own filename inside it as
+        % <MatchName or its own base name>_minICI.csv, ignoring any filename
+        % in whatever path is passed. outPath here is the FULL predicted path
+        % the caller already computed with matching logic -- fileparts() just
+        % recovers the folder half of it to hand over.
+        [outFolderForCsv, ~, ~] = fileparts(outPath);
+        nv = {'OutputCsv', outFolderForCsv, 'Verbose', verbose};
+        if strlength(pairPath) > 0,  nv = [nv, {'PairPath', pairPath}];   end
+        if strlength(matchName) > 0, nv = [nv, {'MatchName', matchName}]; end
+        S = fcn(inPath, nv{:});
+        if isstruct(S) && isfield(S, 'n_rows')
+            nRows = S.n_rows;
+        end
+
+    case "writes_file"
+        extra = {};
+        if strlength(pairPath) > 0, extra = {'PairPath', pairPath}; end
+        fcn(inPath, outPath, extra{:});
+
+    case "returns_table"
+        extra = {};
+        if strlength(pairPath) > 0, extra = {'PairPath', pairPath}; end
+        T = fcn(inPath, extra{:});
+        writetable(T, outPath);
+
+    case "auto"
+        extra = {};
+        if strlength(pairPath) > 0, extra = {'PairPath', pairPath}; end
+        try
+            out = fcn(inPath, outPath, extra{:});
             if ~isfile(outPath) && istable(out)
                 writetable(out, outPath);      % it returned the table instead
             end
         catch
-            T = fcn(inPath);                   % fall back to the 1-arg form
-            if istable(T), writetable(T, outPath); else, rethrow(lasterror_struct()); end
+            T = fcn(inPath, extra{:});         % fall back to the 1-arg form
+            if istable(T)
+                writetable(T, outPath);
+            else
+                % T is not a table and fcn(inPath,...) alone did not error,
+                % so there is nothing caught here to legitimately rethrow --
+                % throw() (not rethrow()) works on a freshly built
+                % MException; rethrow() specifically requires one that was
+                % previously thrown and caught, and errors on a fresh one.
+                throw(lasterror_struct());
+            end
         end
+
     otherwise
         error('runMinICIBatch:badMode', 'Unknown WorkflowMode "%s"', mode);
 end
@@ -243,6 +498,7 @@ for k = 1:2:numel(args)
 end
 opts.Suffix       = string(opts.Suffix);
 opts.ManifestFile = string(opts.ManifestFile);
+opts.LocalStageFolder = string(opts.LocalStageFolder);
 opts.WorkflowMode = string(opts.WorkflowMode);
 end
 

@@ -18,6 +18,21 @@ function rep = extractMinICIUpdates(bigCsv, X, outCsv, varargin)
 %   disagreement means the crosswalk put the wrong file against the deployment,
 %   and those rows are counted and sampled instead of silently written.
 %
+%   PERFORMANCE
+%   -----------
+%   Three things dominated runtime before and are now avoided:
+%     1. datetime() parsing on every row of a ~65M-row file. novana-bpm
+%        stores datetimes already in 'yyyy-MM-dd HH:mm:ss' form, so the raw
+%        text goes straight into the join key with no parsing. Verified
+%        against a regex on the first chunk; falls back to real parsing (with
+%        the same loud failure guard as before) if the text isn't canonical.
+%     2. one fprintf call per matched row (~1.3M of them). Each chunk's
+%        output lines are now built as one vectorised string array and
+%        written with a single fwrite.
+%     3. re-formatting each min_ici value at write time -- now pre-formatted
+%        once when the targets are loaded.
+%   'ReadSize' also defaults higher (1e6 rows) to cut per-chunk overhead.
+%
 %   rep fields
 %       .targetRows       min_ici values offered by the matched files
 %       .written          rows written to outCsv
@@ -29,7 +44,7 @@ function rep = extractMinICIUpdates(bigCsv, X, outCsv, varargin)
 %
 %   Part of the minICI back-fill toolset.
 
-opts = struct('ReadSize', 200000, ...
+opts = struct('ReadSize', 1000000, ...
     'DatetimeFormat', "yyyy-MM-dd HH:mm:ss", ...          % minICI output files
     'BigDatetimeFormat', "", ...                           % novana_bpm export;
     ...                                                     % "" = infer (unsafe for
@@ -88,6 +103,9 @@ if numel(unique(tgtKey)) ~= numel(tgtKey)
 end
 
 hitCount   = zeros(numel(tgtKey),1);
+
+% pre-format the values once here rather than per matched row in the loop
+tgtValStr = compose("%.10g", tgtVal);
 depsInPlay = unique(M.deployment_fk);
 
 %% ---- stream the big file ----------------------------------------------
@@ -110,6 +128,7 @@ ds.SelectedVariableNames = cellstr(want);
 
 written = 0; nMismatch = 0; nDup = 0; nInScopeClickPos = 0; chunkNo = 0;
 mismatchSample = table();
+useRawText = false;   % decided on the first chunk, see below
 
 while hasdata(ds)
     C = read(ds); chunkNo = chunkNo + 1;
@@ -122,35 +141,60 @@ while hasdata(ds)
     end
     C = C(inPlay,:); dep = dep(inPlay);
 
-    dt = C.datetime;
-    if ~isdatetime(dt)
-        raw = string(C.datetime);
-        if strlength(opts.BigDatetimeFormat) > 0
-            dt = datetime(raw, 'InputFormat', char(opts.BigDatetimeFormat));
+    rawDt = string(C.datetime);
+
+    % PERFORMANCE: datetime() parsing was previously run on every row of a
+    % ~65M-row file, which dominated runtime. The target keys are built from
+    % 'yyyy-MM-dd HH:mm:ss' strings, and novana-bpm stores its datetime in
+    % exactly that form (confirmed via inspectBigFile), so when the raw text
+    % already matches that pattern it can go straight into the key with no
+    % parsing at all. Verified on the first chunk, then trusted; anything
+    % that doesn't match falls back to real parsing.
+    if chunkNo == 1
+        nonEmpty = strlength(strtrim(rawDt)) > 0;
+        canonical = ~cellfun(@isempty, regexp(cellstr(rawDt), ...
+            '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$', 'once'));
+        useRawText = mean(canonical(nonEmpty)) > 0.999;
+
+        if ~useRawText
+            % same guard as before: a wrong format should fail loudly here,
+            % not silently drop rows deep into a multi-hour run
+            if strlength(opts.BigDatetimeFormat) > 0
+                dtChk = datetime(rawDt, 'InputFormat', char(opts.BigDatetimeFormat));
+            else
+                dtChk = datetime(rawDt);
+            end
+            badFrac = sum(isnat(dtChk) & nonEmpty) / max(1, sum(nonEmpty));
+            if badFrac > 0.01
+                examples = rawDt(isnat(dtChk) & nonEmpty);
+                error('extractMinICIUpdates:badDatetimeFormat', ...
+                    ['%.1f%% of datetimes in the first chunk of %s failed to parse. ' ...
+                     'Run inspectBigFile(bigCsv) and pass its .dateOrderGuess as ' ...
+                     '''BigDatetimeFormat'' explicitly. Example raw value(s): %s'], ...
+                    100*badFrac, bigCsv, strjoin(examples(1:min(5,numel(examples))), ', '));
+            end
         else
-            dt = datetime(raw);
+            reportProgress(opts.ProgressFcn, NaN, ...
+                'datetime text is already canonical -- skipping per-row parsing');
         end
     end
 
-    if chunkNo == 1
-        raw = string(C.datetime);
-        nonEmpty = strlength(strtrim(raw)) > 0;
-        badFrac = sum(isnat(dt) & nonEmpty) / max(1, sum(nonEmpty));
-        if badFrac > 0.01
-            examples = raw(isnat(dt) & nonEmpty);
-            error('extractMinICIUpdates:badDatetimeFormat', ...
-                ['%.1f%% of datetimes in the first chunk of %s failed to parse. ' ...
-                 'Run inspectBigFile(bigCsv) and pass its .dateOrderGuess as ' ...
-                 '''BigDatetimeFormat'' explicitly. Example raw value(s): %s'], ...
-                100*badFrac, bigCsv, strjoin(examples(1:min(5,numel(examples))), ', '));
+    if useRawText
+        dtKeyStr = rawDt;
+    else
+        if strlength(opts.BigDatetimeFormat) > 0
+            dtParsed = datetime(rawDt, 'InputFormat', char(opts.BigDatetimeFormat));
+        else
+            dtParsed = datetime(rawDt);
         end
+        dtKeyStr = string(dtParsed, 'yyyy-MM-dd HH:mm:ss');
     end
 
     if ismember("number_clicks_filtered", opts.CheckColumns)
         nInScopeClickPos = nInScopeClickPos + sum(double(C.number_clicks_filtered) > 0);
     end
 
-    k = detectionKey(dep, dt, C.quality, C.species);
+    k = dep + "|" + dtKeyStr + "|" + upper(string(C.quality)) + "|" + upper(string(C.species));
     [tf, loc] = ismember(k, tgtKey);
     if ~any(tf)
         reportProgress(opts.ProgressFcn, NaN, sprintf('Chunk %d: 0 matches', chunkNo));
@@ -174,20 +218,24 @@ while hasdata(ds)
         nMismatch = nMismatch + sum(~good);
         if height(mismatchSample) < 20
             s = find(~good); s = s(1:min(20-height(mismatchSample), numel(s)));
-            mismatchSample = [mismatchSample; table(C.id_pk(r(s)), dep(r(s)), dt(r(s)), ...
+            mismatchSample = [mismatchSample; table(C.id_pk(r(s)), dep(r(s)), dtKeyStr(r(s)), ...
                 C.quality(r(s)), tgtSrc(t(s)), ...
                 'VariableNames', {'id_pk','deployment_fk','datetime','quality','source_file'})]; %#ok<AGROW>
         end
     end
 
     r = r(good); t = t(good);
-    for j = 1:numel(r)
-        fprintf(fid, '%s,%.10g,%s,%s,%s,%s,%s,%s\n', ...
-            C.id_pk(r(j)), tgtVal(t(j)), dep(r(j)), ...
-            string(dt(r(j)), 'yyyy-MM-dd HH:mm:ss'), C.quality(r(j)), C.species(r(j)), ...
-            tgtSrc(t(j)), tgtDb(t(j)));
+
+    % PERFORMANCE: one vectorised string build + a single fwrite per chunk,
+    % instead of an fprintf call per matched row. At ~1.3M matched rows the
+    % per-row loop was the other half of the runtime problem.
+    if ~isempty(r)
+        lines = C.id_pk(r) + "," + tgtValStr(t) + "," + dep(r) + "," + ...
+                dtKeyStr(r) + "," + C.quality(r) + "," + C.species(r) + "," + ...
+                tgtSrc(t) + "," + tgtDb(t);
+        fwrite(fid, strjoin(lines, newline) + newline, 'char');
+        written = written + numel(r);
     end
-    written = written + numel(r);
 
     reportProgress(opts.ProgressFcn, NaN, ...
         sprintf('Chunk %d: %d matched (%d written so far)', chunkNo, numel(r), written));
