@@ -11,7 +11,7 @@ Valkyrie validates metadata, matches POD detection files to deployments, extract
 VALKYRIE can be installed on windows platforms. 
 Installation and use of VALKYRIE does not require MATLAB license.
 
-1. Download the installer here (https://github.com/EuropeanTrackingNetwork/Valkyrie/releases/download/v0.2/VALKYRIE_v0_2_installer.exe).
+1. Download the installer via the release button on the left. Make sure to install the latest version!
 2. Run the installer by double-clicking. It can take a moment to open the installer, as it will automatically install MATLAB Runtime on the first download. When the installation window appears, follow the prompts.
 
 ## Usage
