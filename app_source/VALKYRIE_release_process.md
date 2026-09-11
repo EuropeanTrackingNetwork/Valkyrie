@@ -137,9 +137,10 @@ build_valkyrie
 OBS: if this fails on the read/write to the folder where the output should go, it could be because it is on OneDrive or the O:\drive. Try changing the output to a local folder instead.
 ---
 
-## 5. Test the installer (preferably on another PC)
+## 5. Test the installer (preferably on a Virtual Machinge)
 
 Best would be to test on a new PC, one that doesn't already have MATLAB installed.
+This can also be done in a Virtual Machine (see the VM_test_guide.md for guide).
 If that isn't possible, just install and test on the build-PC. 
 
 - [ ] Installer runs from a normal (non-admin) user account, or admin requirement is documented
@@ -165,7 +166,7 @@ Generate a checksum first. Open Powershell and make sure to change the path to t
 The checksum will generate a sort of fingerprint for the recently build installer file. If something is not working a user can check that the checksum of their downloaded copy is identical to the one in our release.
 
 ```powershell
-Get-FileHash .\Valkyrie_1.0.0_Setup.exe -Algorithm SHA256
+Get-FileHash O:\Nat-Tech_DTO-BioFlow\VALKYRIE\installer\Valkyrie_1.0.0_Setup.exe -Algorithm SHA256
 ```
 When this has run it will generate a very long Hash string that is used in the release.
 A check here could be to download installer after release and check that the checksum matches what was uploaded.
@@ -174,15 +175,15 @@ A check here could be to download installer after release and check that the che
 Tag the exact source that was built. For example:
 
 ```powershell
-git tag -a v1.0.0 -m "Valkyrie 1.0.0"
-git push origin v1.0.0
+git tag -a v1.0.1 -m "Valkyrie 1.0.1"
+git push origin v1.0.1
 ```
 
 Create the release (GitHub → Releases → Draft a new release, or `gh release create`):
 
 On GitHub:
-- [ ] Tag: `v1.0.0`, target = the commit from Step 1
-- [ ] Title: `Valkyrie 1.0.0`
+- [ ] Tag: `v1.0.1`, target = the commit from Step 1
+- [ ] Title: `Valkyrie 1.0.1`
 - [ ] Notes from the template in Appendix B
 - [ ] Installer attached as a release asset
 - [ ] SHA-256 listed in the notes
