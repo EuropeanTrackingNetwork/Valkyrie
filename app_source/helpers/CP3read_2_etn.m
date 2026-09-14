@@ -64,6 +64,7 @@ ETN.quality = categorical(ETN.quality, [1 2 3], {'Lo', 'Mod', 'Hi'});
 
 % change units from microsecond steps to milliseconds
 ETN.milliseconds = round(ETN.milliseconds*0.001) ; %no decimal ms
+ETN.MIN_ICI = (ETN.MIN_ICI*0.001) ; %decimal ms allowed
 
 % lost minutes
 ETN.lost_minutes = double(ETN.nall > 4096) ;
