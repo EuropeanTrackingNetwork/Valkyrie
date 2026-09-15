@@ -66,3 +66,8 @@ returned by `app_source/valkyrieVersion.m` at that commit.
 - Several distinct installers were circulated as 1.0.0. If you are unsure which
   build you have, reinstall 1.0.1 — from this release on, every published
   installer corresponds to a tagged commit.
+
+## [1.1.0] - 2026-09-15
+
+### Changed
+- The time resolution of the output for minimum ICI (min_ICI) changed from microseconds to miliseconds.

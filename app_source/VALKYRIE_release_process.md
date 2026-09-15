@@ -12,7 +12,7 @@ Compiled output depends on the exact toolchain, so the build machine must be pin
 
 | Item | Value | Notes |
 |---|---|---|
-| MATLAB release | e.g. R2024b | Changing this changes the required MATLAB Runtime on every user's PC |
+| MATLAB release | e.g. R2025b | Changing this changes the required MATLAB Runtime on every user's PC |
 | Toolboxes used | list them | Must be licensed on the build machine |
 | MATLAB Compiler | required | `matlabruntime`/`mcc` must be available |
 | Build machine | name/ID | One designated machine, or a documented VM image |
@@ -134,7 +134,8 @@ build_valkyrie
 
 **On `RuntimeDelivery`:** `'installer'` bundles the MATLAB Runtime (~1–2 GB installer, works offline). `'web'` downloads it during install (small installer, needs internet). Pick one and keep it consistent, or publish both and label them clearly.
 
-OBS: if this fails on the read/write to the folder where the output should go, it could be because it is on OneDrive or the O:\drive. Try changing the output to a local folder instead.
+OBS: If this fails on the read/write to the folder where the output should go, it could be because it is on OneDrive or the O:\drive. Try changing the output to a local folder instead.
+
 ---
 
 ## 5. Test the installer (preferably on a Virtual Machinge)

@@ -5,5 +5,5 @@ function v = valkyrieVersion()
     %before, e.g. new input or output format
     %minor: a new feature added, backwards compatibility
     %patch: bug fixes only
-    v = "1.0.1";   % OBS: edit here before new release!
+    v = "1.1.0";   % OBS: edit here before new release!
 end
