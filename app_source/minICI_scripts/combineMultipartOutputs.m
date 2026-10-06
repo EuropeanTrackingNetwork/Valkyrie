@@ -4,8 +4,22 @@ function combined = combineMultipartOutputs(R, manifest, outFolder, varargin)
 %   combined = combineMultipartOutputs(R, manifest, outFolder)
 %
 %   R          matchRawToProcessed output (procName, rawPath, status, rawFileNo, ...)
-%   manifest   runMinICIBatch output (rawPath, outPath, status)
+%   manifest   runMinICIBatch output (rawPath, outPath, status). This can
+%              safely be the FULL accumulated manifest, including rows from
+%              earlier/superseded runs -- see "manifest deduplication" below.
 %   outFolder  destination for the combined files
+%
+%   Manifest deduplication
+%   -----------------------
+%   runMinICIBatch's manifest is an APPEND-ONLY LOG by design (it opens the
+%   file in append mode every run, preserving the full history of every
+%   attempt for audit purposes) -- it is not a current-state table. A raw
+%   file reprocessed more than once (a bug fix, a deliberate 'Overwrite'
+%   rerun) legitimately has more than one row for the same rawPath. This
+%   function deduplicates to the LAST occurrence per rawPath before joining,
+%   so a stale entry from before a fix can never silently outrank the
+%   current, correct one -- you do not need to pre-clean the manifest
+%   yourself before calling this.
 %
 %   Why this step exists
 %   ---------------------
@@ -40,21 +54,75 @@ function combined = combineMultipartOutputs(R, manifest, outFolder, varargin)
 %       "skipped_incomplete" | "passthrough")
 %
 %   Options
-%       'Suffix'    appended to procName for the combined filename
-%                   (default "_minICI_combined")
-%       'Overwrite' redo a combined file that already exists (default false)
+%       'Suffix'       appended to the target name for the combined filename
+%                      (default "_minICI_combined")
+%       'Overwrite'    redo a combined file that already exists (default false)
+%       'TargetNames'  table with columns {procName, targetName}, one row per
+%                      deployment. When supplied, BOTH the combined file's own
+%                      disk name AND its internal 'filename' CSV column (the
+%                      archive format's own field, read back by
+%                      scanMinICIOutputs as newFilename) are set to
+%                      targetName instead of procName, for every row,
+%                      overwriting whatever per-part value each part's own
+%                      minICI_workflow output happened to carry.
+%
+%                      This matters whenever whatever matches these outputs
+%                      to a deployment afterward does an exact NAME-TEXT join
+%                      (e.g. buildCrosswalkFromLookup) rather than window
+%                      matching (matchFilesToDeployments) -- window matching
+%                      never cared what text sat in that column or what the
+%                      combined file was named, so this was never needed for
+%                      it. Without 'TargetNames' supplied, a multi-part
+%                      deployment's combined file keeps each part's own
+%                      per-part-suffixed filename text (inconsistent across
+%                      rows), and the combined file itself is named after
+%                      procName rather than the deployment's real dbFilename
+%                      -- both silently break a name-based join even though
+%                      window-based matching was never affected by either.
+%
+%                      Build TargetNames the same way the real output naming
+%                      was derived (e.g. from idx.dbFilename via the same
+%                      join used to build MatchName), not from procName
+%                      itself -- procName alone lacks whatever the real
+%                      target naming scheme adds (a timestamp suffix, a
+%                      shard-specific convention, etc).
 %
 %   Part of the minICI back-fill toolset.
 
-opts = struct('Suffix', "_minICI_combined", 'Overwrite', false);
+opts = struct('Suffix', "_minICI_combined", 'Overwrite', false, 'TargetNames', table());
 opts = parseOpts(opts, varargin);
 
 if ~isfolder(outFolder), mkdir(outFolder); end
 
+useTargetNames = ~isempty(opts.TargetNames);
+if useTargetNames
+    need = ["procName","targetName"];
+    missing = setdiff(need, string(opts.TargetNames.Properties.VariableNames));
+    if ~isempty(missing)
+        error('combineMultipartOutputs:badTargetNames', ...
+            "'TargetNames' is missing column(s): %s.", strjoin(missing, ', '));
+    end
+end
+
 resolved = ["matched","matched_multipart","matched_nearest"];
 Rr = R(ismember(R.status, resolved) & ~ismissing(R.rawPath), :);
 
-% attach each raw file's output path from the batch manifest
+% The manifest is an APPEND-ONLY LOG by design (runMinICIBatch opens it in
+% append mode every run, so the full history of every attempt is preserved
+% for audit purposes) -- it is NOT a current-state table. A raw file
+% reprocessed more than once (a bug fix, a deliberate 'Overwrite' rerun)
+% legitimately has more than one row for the same rawPath. A plain
+% ismember(Rr.rawPath, manifest.rawPath) join silently returns the FIRST
+% match, which can be a STALE entry from before a fix -- observed in
+% practice as a multi-part deployment where an early, incomplete run's
+% output got picked over the later, correct one, despite both existing in
+% the same manifest. Deduplicating to the LAST occurrence per rawPath here
+% means every caller gets this safety automatically, rather than needing to
+% remember to dedupe before every call.
+[~, keepIdx] = unique(manifest.rawPath, 'last');
+manifest = manifest(sort(keepIdx), :);
+
+% attach each raw file's output path from the (now deduplicated) batch manifest
 [tf, loc] = ismember(Rr.rawPath, manifest.rawPath);
 Rr.outPath = strings(height(Rr),1);
 Rr.outStatus = strings(height(Rr),1);
@@ -68,7 +136,20 @@ for k = 1:numel(procs)
     p = procs(k);
     parts = Rr(Rr.procName == p, :);
     parts = sortrows(parts, 'rawFileNo');
-    finalOut = fullfile(outFolder, p + opts.Suffix + ".csv");
+
+    % the name used for the combined file's own disk name -- targetName if
+    % supplied and found, procName otherwise (unchanged, original behaviour)
+    outName = p;
+    if useTargetNames
+        hit = opts.TargetNames.targetName(opts.TargetNames.procName == p);
+        if ~isempty(hit)
+            outName = hit(1);
+        else
+            warning('combineMultipartOutputs:noTargetName', ...
+                "No targetName found for procName '%s' -- falling back to procName for its disk filename and internal 'filename' column.", p);
+        end
+    end
+    finalOut = fullfile(outFolder, outName + opts.Suffix + ".csv");
     ready = ["done","skipped_exists"];   % a RESUMED batch logs an already-present
                                           % file as "skipped_exists", not "done" --
                                           % both mean the output genuinely exists
@@ -88,7 +169,19 @@ for k = 1:numel(procs)
             continue
         end
         try
-            copyfile(parts.outPath(1), finalOut);
+            if useTargetNames
+                % rewrite the internal 'filename' column too, not just copy
+                % the bytes -- a single-part deployment's own file was named
+                % via MatchName, which SHOULD already equal targetName, but
+                % this makes it certain rather than assumed
+                Tone = readtable(parts.outPath(1), 'TextType', 'string');
+                if ismember('filename', Tone.Properties.VariableNames)
+                    Tone.filename = repmat(outName, height(Tone), 1);
+                end
+                writetable(Tone, finalOut);
+            else
+                copyfile(parts.outPath(1), finalOut);
+            end
             rows{k} = row(p, string(finalOut), 1, NaN, parts.rawName(1), "passthrough", "");
         catch err
             rows{k} = row(p, "", 1, NaN, parts.rawName(1), "skipped_conflict", ...
@@ -145,6 +238,15 @@ for k = 1:numel(procs)
     combinedT = vertcat(T{:});
     if ismember('datetime', combinedT.Properties.VariableNames)
         combinedT = sortrows(combinedT, {'datetime','quality'});
+    end
+    if useTargetNames && ismember('filename', combinedT.Properties.VariableNames)
+        % THE core fix: each part's own row carried its own per-part
+        % filename text (e.g. "..._file01", "..._file02") inherited from
+        % whatever MatchName minICI_workflow ran under -- overwritten here so
+        % every row in the combined file agrees on ONE deployment-level name,
+        % which is what a name-text join (buildCrosswalkFromLookup) needs
+        % and what window-matching (matchFilesToDeployments) never required.
+        combinedT.filename = repmat(outName, height(combinedT), 1);
     end
 
     outFile = finalOut;

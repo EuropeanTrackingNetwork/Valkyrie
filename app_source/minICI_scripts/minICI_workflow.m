@@ -175,7 +175,7 @@ qualCol  = string(ETN.QUALITY);
 % min_ici: keep the raw value, but blank out the placeholder zeros that mean
 % "no qualifying train in this minute" rather than "an ICI of zero".
 minIciRaw = double(ETN.MIN_ICI);
-minIci    = minIciRaw;
+minIci    = minIciRaw*0.001;
 minIci(double(ETN.NUMBER_CLICKS_FILTERED) == 0) = NaN;
 
 T = table;

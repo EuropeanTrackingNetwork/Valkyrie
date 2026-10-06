@@ -4,9 +4,11 @@ function comp = findCompanionRawFiles(R, rawU, companionExt, varargin)
 %   comp = findCompanionRawFiles(R, rawU, "cp1")
 %   comp = findCompanionRawFiles(R, rawU, ["cp1","fp1"])
 %
-%   R         matchRawToProcessed output -- the ALREADY-SOLVED hard matching
-%             problem (which raw file belongs to which deployment), typically
-%             done against .cp3/.fp3
+%   R         matchRawToProcessed output (or R with manually-built rows from
+%             buildManualRow mixed in -- both work here, since canonName is
+%             computed directly from each row's own rawName rather than
+%             looked up via rawU, so a row doesn't need to already be the
+%             copy collapseRawCopies happened to keep)
 %   rawU      collapseRawCopies output -- must include the companion extension
 %             in its inventory, i.e. surveyPodFiles' root folders must actually
 %             cover wherever the companion files live. If they were surveyed
@@ -68,15 +70,16 @@ end
 resolved = ["matched","matched_multipart","matched_nearest"];
 Rr = R(ismember(R.status, resolved) & ~ismissing(R.rawPath), :);
 
-[tf, loc] = ismember(Rr.rawPath, rawU.path);
-if ~all(tf)
-    warning('findCompanionRawFiles:pathMismatch', ...
-        ['%d matched row(s) in R do not appear in rawU by exact path -- was R built ' ...
-         'from this same rawU (post-collapseRawCopies)? Those rows are skipped.'], sum(~tf));
-end
-Rr = Rr(tf, :);
-Rr.canonName = rawU.canonName(loc(tf));
-Rr.podIdChk  = rawU.podId(loc(tf));
+% canonName is a deterministic function of the filename text alone (same
+% normalisation collapseRawCopies uses: separators -> spaces, PART suffix
+% stripped, uppercased) -- computed directly here rather than looked up via
+% a join to rawU.path, so this works for ANY row in R, including ones built
+% by buildManualRow that were never in rawU because collapseRawCopies kept a
+% different copy of the same name as its representative. podId is likewise
+% used straight from R's own column rather than re-fetched from rawU.
+normName = upper(strtrim(regexprep(regexprep(Rr.rawName, '[_\-\.]+', ' '), '\s+', ' ')));
+Rr.canonName = string(regexprep(cellstr(normName), '\s+PART\s+.*$', '', 'ignorecase'));
+Rr.podIdChk  = Rr.podId;
 
 compPool = rawU(ismember(lower(rawU.ext), companionExt), :);
 

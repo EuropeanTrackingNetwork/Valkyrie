@@ -59,6 +59,25 @@ for r = 1:numel(roots)
     d = d(~[d.isdir]);
     if isempty(d), continue, end
 
+    % dir(fullfile(folder,'**','*')) can double-list files sitting directly
+    % in the root folder itself on some MATLAB/OS combinations (matched once
+    % via the explicit listing, again via '**' expanding to zero
+    % subdirectories). This dedup is always safe regardless of whether that
+    % bug is actually firing: a real file can never legitimately appear at
+    % the exact same full path twice, so this only ever removes artifacts,
+    % never genuine different-folder duplicates (which have different paths
+    % and are left untouched, still visible in the duplicate-name report
+    % further down).
+    fullPaths = string(fullfile({d.folder}, {d.name}))';
+    [~, firstOcc] = unique(fullPaths, 'stable');
+    if numel(firstOcc) < numel(d)
+        warning('surveyPodFiles:duplicateListing', ...
+            ['%d file(s) under %s were listed more than once at the exact same path ' ...
+             '(a known dir() recursive-glob quirk, not real duplicate files) -- removed.'], ...
+             numel(d) - numel(firstOcc), roots(r));
+    end
+    d = d(firstOcc);
+
     names = string({d.name})';
     [~, base, extDot] = fileparts(names);
     ext = lower(erase(string(extDot), "."));
