@@ -102,7 +102,7 @@ When uploading data to ETN, ETN will run some checks to ensure the quality of th
 ## Meta
 
 - License: MIT
-- Please note that by using VALKYRIE and registering for ETN, you agree to the following Data Policy https://www.lifewatch.be/etn/assets/docs/ETN-DataPolicy.pdf.
+- Please note that by using VALKYRIE and registering for ETN, you agree to the following Data Policy [https://www.lifewatch.be/etn/assets/docs/ETN-DataPolicy-UnderwaterAcousticsAnnex.pdf](https://lifewatch.be/etn/assets/docs/ETN-DataPolicy-UnderwaterAcousticsAnnex.pdf).
 
 <img width="506" height="107" alt="aulogo_uk_var2_blue" src="https://github.com/user-attachments/assets/bda63fcf-5fd1-4b40-b886-7fb6bbbdb3d9" />
 <img width="1200" height="630" alt="VLIZ_LOGO_OG_TWITTER_1200x630-2573066346" src="https://github.com/user-attachments/assets/190bbe1e-f313-469d-9bb9-bc90a60ca223" />
